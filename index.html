@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zishu AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f4f7fc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 24px 16px;
+            color: #1a2332;
+            overflow: hidden;
+        }
+
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+            padding: 0 4px;
+        }
+        #brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #brand svg {
+            width: 32px;
+            height: 32px;
+        }
+        #brand h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #3b82f6, #7b6cf7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #brand .sub {
+            font-size: 12px;
+            font-weight: 400;
+            color: #6b7a8f;
+            -webkit-text-fill-color: #6b7a8f;
+            background: none;
+            margin-left: 4px;
+        }
+        #status-badge {
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 16px;
+            border-radius: 30px;
+            background: #e9edf4;
+            color: #6b7a8f;
+            transition: all 0.3s ease;
+        }
+        #status-badge.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        #orb-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 0 20px;
+            flex-shrink: 0;
+        }
+        #orb {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #3b82f6, #1a2332);
+            box-shadow: 0 0 60px rgba(59, 130, 246, 0.15);
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        #orb:hover {
+            transform: scale(1.04);
+        }
+        #orb.listening {
+            background: radial-gradient(circle at 30% 30%, #4f8ef7, #1a2332);
+            box-shadow: 0 0 80px rgba(79, 142, 247, 0.25);
+            animation: orbPulse 1.2s ease-in-out infinite;
+        }
+        #orb.thinking {
+            background: radial-gradient(circle at 30% 30%, #7b6cf7, #1a2332);
+            box-shadow: 0 0 80px rgba(123, 108, 247, 0.25);
+            animation: orbSpin 2s linear infinite;
+        }
+        #orb.speaking {
+            background: radial-gradient(circle at 30% 30%, #3b82f6, #1a2332);
+            box-shadow: 0 0 80px rgba(59, 130, 246, 0.2);
+            animation: orbSpeak 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes orbPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes orbSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes orbSpeak {
+            0% { transform: scale(1) translateY(0); }
+            100% { transform: scale(1.04) translateY(-3px); }
+        }
+
+        #orb-status {
+            margin-top: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a2332;
+            letter-spacing: -0.2px;
+        }
+        #orb-sub {
+            font-size: 13px;
+            color: #6b7a8f;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        #chat-wrapper {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e9edf4;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            scroll-behavior: smooth;
+        }
+        #chat-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: #f1f4f9;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #d0d8e3;
+            border-radius: 10px;
+        }
+
+        .message {
+            margin: 8px 0;
+            padding: 12px 18px;
+            border-radius: 16px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: fadeIn 0.25s ease;
+            line-height: 1.7;
+            font-size: 15px;
+            font-weight: 400;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+        .user-msg {
+            background: #3b82f6;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .assistant-msg {
+            background: #f1f4f9;
+            color: #1a2332;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .message .sender {
+            font-weight: 600;
+            font-size: 12px;
+            opacity: 0.7;
+            display: block;
+            margin-bottom: 3px;
+            letter-spacing: 0.3px;
+        }
+        .assistant-msg .sender {
+            color: #6b7a8f;
+        }
+        .user-msg .sender {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .message .content {
+            display: block;
+        }
+
+        .tool-msg {
+            background: #e9edf4;
+            color: #6b7a8f;
+            margin: 6px auto;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            text-align: center;
+            max-width: 85%;
+            font-weight: 450;
+        }
+
+        #footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 4px 0;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: #9aa9bb;
+            letter-spacing: 0.2px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 12px 14px 10px;
+            }
+            #orb {
+                width: 80px;
+                height: 80px;
+            }
+            #brand h1 {
+                font-size: 18px;
+            }
+            #brand .sub {
+                font-size: 10px;
+            }
+            #orb-status {
+                font-size: 14px;
+            }
+            .message {
+                font-size: 14px;
+                padding: 10px 14px;
+                max-width: 88%;
+            }
+            #chat-container {
+                padding: 14px 16px;
+            }
+            #status-badge {
+                font-size: 11px;
+                padding: 4px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <div id="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="1.8">
+                <defs>
+                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#3b82f6" />
+                        <stop offset="100%" stop-color="#7b6cf7" />
+                    </linearGradient>
+                </defs>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 12l2 2 4-4" />
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+            <div style="display:flex;align-items:baseline;gap:6px;">
+                <h1>ZISHU</h1>
+                <span class="sub">voice intelligence</span>
+            </div>
+        </div>
+        <div id="status-badge">● Idle</div>
+    </div>
+
+    <div id="orb-container">
+        <div id="orb"></div>
+        <div id="orb-status">Tap orb to start</div>
+        <div id="orb-sub">First tap to enable microphone</div>
+    </div>
+
+    <div id="chat-wrapper">
+        <div id="chat-container"></div>
+    </div>
+
+    <div id="footer">
+        <span>private · local</span>
+        <span>v2.8</span>
+    </div>
+
+    <script>
+        // ============================================================
+        // CONFIG - YOUR BACKEND URL
+        // ============================================================
+        const BACKEND_URL = 'https://zishu-backend.onrender.com/api/chat';
+        
+        // ============================================================
+        // STATE MACHINE
+        // ============================================================
+        const STATE = {
+            IDLE: 'idle',
+            LISTENING: 'listening',
+            THINKING: 'thinking',
+            SPEAKING: 'speaking'
+        };
+
+        let state = STATE.IDLE;
+        let recognition = null;
+        let isProcessing = false;
+        let currentUtterance = null;
+        let restartTimer = null;
+        let isRestartScheduled = false;
+        let isFirstActivation = true;
+        let conversationHistory = [];
+
+        // ============================================================
+        // DOM REFS
+        // ============================================================
+        const orb = document.getElementById('orb');
+        const orbStatus = document.getElementById('orb-status');
+        const orbSub = document.getElementById('orb-sub');
+        const chatContainer = document.getElementById('chat-container');
+        const statusBadge = document.getElementById('status-badge');
+
+        // ============================================================
+        // WEBSITE ALIASES - HINDI + ENGLISH
+        // ============================================================
+        const SITE_ALIASES = {
+            youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
+            google: ['google', 'गूगल'],
+            gmail: ['gmail', 'जीमेल', 'जी मेल'],
+            github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
+            instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
+            facebook: ['facebook', 'फेसबुक'],
+            whatsapp: ['whatsapp', 'व्हाट्सएप', 'व्हाट्सऐप'],
+            twitter: ['twitter', 'ट्विटर', 'x'],
+            reddit: ['reddit', 'रेडिट'],
+            spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाय'],
+            netflix: ['netflix', 'नेटफ्लिक्स'],
+            amazon: ['amazon', 'अमेज़न', 'अमेजन'],
+            flipkart: ['flipkart', 'फ्लिपकार्ट'],
+            linkedin: ['linkedin', 'लिंक्डइन'],
+            maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स'],
+            drive: ['google drive', 'drive', 'गूगल ड्राइव', 'ड्राइव'],
+            docs: ['google docs', 'docs', 'गूगल डॉक्स', 'डॉक्स'],
+            translate: ['google translate', 'translate', 'गूगल ट्रांसलेट', 'ट्रांसलेट'],
+            zomato: ['zomato', 'जोमैटो'],
+            swiggy: ['swiggy', 'स्विगी']
+        };
+
+        const WEBSITE_MAP = {
+            youtube: 'https://youtube.com',
+            google: 'https://google.com',
+            gmail: 'https://gmail.com',
+            github: 'https://github.com',
+            reddit: 'https://reddit.com',
+            twitter: 'https://twitter.com',
+            instagram: 'https://instagram.com',
+            whatsapp: 'https://web.whatsapp.com',
+            maps: 'https://maps.google.com',
+            drive: 'https://drive.google.com',
+            docs: 'https://docs.google.com',
+            translate: 'https://translate.google.com',
+            facebook: 'https://facebook.com',
+            linkedin: 'https://linkedin.com',
+            spotify: 'https://spotify.com',
+            netflix: 'https://netflix.com',
+            amazon: 'https://amazon.in',
+            flipkart: 'https://flipkart.com',
+            zomato: 'https://zomato.com',
+            swiggy: 'https://swiggy.com'
+        };
+
+        // ============================================================
+        // LOCAL COMMAND DETECTION
+        // ============================================================
+        function detectLocalCommand(query) {
+            const q = query.toLowerCase().trim();
+            const openWords = [
+                'open', 'open karo', 'open kar', 'kholo', 'khol', 'khol do', 'khol de',
+                'chalao', 'chala do', 'start', 'launch',
+                'खोलो', 'खोल', 'खोल दो', 'खोल दे', 'चलाओ', 'चला दो', 'शुरू करो', 'शुरू कर'
+            ];
+
+            for (const [site, aliases] of Object.entries(SITE_ALIASES)) {
+                const siteFound = aliases.some(alias => q.includes(alias));
+                if (!siteFound) continue;
+
+                const wantsOpen = openWords.some(word => q.includes(word)) || 
+                                 aliases.some(alias => q === alias) ||
+                                 q === site;
+
+                if (wantsOpen) {
+                    return {
+                        type: 'open_website',
+                        value: site
+                    };
+                }
+            }
+            return null;
+        }
+
+        function openWebsiteDirectly(siteName) {
+            const url = WEBSITE_MAP[siteName];
+            if (!url) {
+                addToolMessage('Website not found: ' + siteName);
+                return false;
+            }
+
+            addToolMessage('Opening ' + siteName + '...');
+            try {
+                window.location.assign(url);
+                return true;
+            } catch (error) {
+                try {
+                    window.location.href = url;
+                    return true;
+                } catch (error2) {
+                    try {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        return true;
+                    } catch (error3) {
+                        addToolMessage('Could not open ' + siteName);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // ============================================================
+        // ORB CONTROLS
+        // ============================================================
+        function setOrbState(newState) {
+            state = newState;
+            orb.className = newState;
+
+            const statusMap = {
+                idle: ['Zishu is ready', 'Tap orb or press Space to talk', '● Idle'],
+                listening: ['Listening...', 'Speak now', '● Listening'],
+                thinking: ['Thinking...', 'Processing your request', '◉ Thinking'],
+                speaking: ['Speaking...', 'Zishu is responding', '● Speaking']
+            };
+            const [status, sub, badge] = statusMap[newState] || statusMap.idle;
+            orbStatus.textContent = status;
+            orbSub.textContent = sub;
+            statusBadge.textContent = badge;
+            statusBadge.className = newState === STATE.IDLE ? '' : 'active';
+        }
+
+        orb.addEventListener('click', toggleListening);
+
+        function toggleListening() {
+            if (isProcessing) {
+                orbSub.textContent = 'Please wait...';
+                return;
+            }
+
+            if (state === STATE.IDLE || state === STATE.SPEAKING) {
+                startListening();
+            } else if (state === STATE.LISTENING) {
+                stopListening();
+                setOrbState(STATE.IDLE);
+            }
+        }
+
+        // ============================================================
+        // SPEECH RECOGNITION
+        // ============================================================
+        function initSpeechRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                orbStatus.textContent = 'Browser not supported';
+                return null;
+            }
+            const rec = new SR();
+            rec.lang = 'hi-IN';
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.maxAlternatives = 1;
+
+            rec.onstart = () => {
+                clearRestartTimer();
+                setOrbState(STATE.LISTENING);
+                if (isFirstActivation) {
+                    isFirstActivation = false;
+                    orbSub.textContent = 'Listening...';
+                }
+            };
+
+            rec.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.trim();
+                if (transcript.length > 0) {
+                    stopListening();
+                    handleUserQuery(transcript);
+                }
+            };
+
+            rec.onerror = (event) => {
+                console.error('Speech error:', event.error);
+                if (event.error === 'not-allowed') {
+                    orbStatus.textContent = 'Microphone access denied';
+                    orbSub.textContent = 'Please allow microphone access';
+                    setOrbState(STATE.IDLE);
+                } else if (event.error === 'no-speech') {
+                    orbSub.textContent = 'No speech detected. Try again.';
+                    scheduleRestart(800);
+                } else {
+                    orbSub.textContent = 'Error: ' + event.error;
+                    scheduleRestart(1000);
+                }
+            };
+
+            rec.onend = () => {
+                if (state === STATE.LISTENING && !isProcessing && !isRestartScheduled) {
+                    scheduleRestart(300);
+                } else if (!isProcessing && state !== STATE.SPEAKING) {
+                    setOrbState(STATE.IDLE);
+                }
+            };
+
+            return rec;
+        }
+
+        function startListening() {
+            clearRestartTimer();
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+                if (!recognition) return;
+            }
+            try {
+                recognition.start();
+                setOrbState(STATE.LISTENING);
+            } catch (e) {
+                try {
+                    recognition.stop();
+                    setTimeout(() => {
+                        recognition.start();
+                        setOrbState(STATE.LISTENING);
+                    }, 200);
+                } catch (ex) {
+                    console.error('Failed to start:', ex);
+                    setOrbState(STATE.IDLE);
+                }
+            }
+        }
+
+        function stopListening() {
+            clearRestartTimer();
+            if (recognition) {
+                try { recognition.stop(); } catch (e) {}
+            }
+            if (!isProcessing) {
+                setOrbState(STATE.IDLE);
+            }
+        }
+
+        function scheduleRestart(delay) {
+            clearRestartTimer();
+            isRestartScheduled = true;
+            restartTimer = setTimeout(() => {
+                isRestartScheduled = false;
+                if (state === STATE.IDLE || state === STATE.LISTENING) {
+                    startListening();
+                }
+            }, delay);
+        }
+
+        function clearRestartTimer() {
+            isRestartScheduled = false;
+            if (restartTimer) {
+                clearTimeout(restartTimer);
+                restartTimer = null;
+            }
+        }
+
+        // ============================================================
+        // UI HELPERS
+        // ============================================================
+        function addToolMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'tool-msg';
+            div.textContent = text;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // ============================================================
+        // TTS
+        // ============================================================
+        function speakText(text) {
+            try {
+                if (currentUtterance) {
+                    window.speechSynthesis.cancel();
+                }
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'hi-IN';
+                utterance.rate = 0.85;
+                utterance.pitch = 1.1;
+                utterance.volume = 1;
+
+                const voices = window.speechSynthesis.getVoices();
+                const femaleVoices = voices.filter(v => 
+                    v.lang.startsWith('hi') && 
+                    (v.name.toLowerCase().includes('female') || 
+                     v.name.toLowerCase().includes('swara') ||
+                     v.name.toLowerCase().includes('lekh'))
+                );
+                if (femaleVoices.length > 0) {
+                    utterance.voice = femaleVoices[0];
+                } else {
+                    const hindiVoice = voices.find(v => v.lang.startsWith('hi'));
+                    if (hindiVoice) utterance.voice = hindiVoice;
+                }
+
+                utterance.onstart = () => {
+                    setOrbState(STATE.SPEAKING);
+                };
+
+                utterance.onend = () => {
+                    currentUtterance = null;
+                    if (!isProcessing) {
+                        setOrbState(STATE.IDLE);
+                        scheduleRestart(1000);
+                    }
+                };
+
+                utterance.onerror = () => {
+                    currentUtterance = null;
+                    if (!isProcessing) {
+                        setOrbState(STATE.IDLE);
+                        scheduleRestart(1000);
+                    }
+                };
+
+                currentUtterance = utterance;
+                window.speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                console.error('TTS error:', error);
+                if (!isProcessing) {
+                    setOrbState(STATE.IDLE);
+                    scheduleRestart(1000);
+                }
+            }
+        }
+
+        // ============================================================
+        // STREAMING RESPONSE
+        // ============================================================
+        async function streamResponse(text) {
+            setOrbState(STATE.SPEAKING);
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message assistant-msg';
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'sender';
+            senderSpan.textContent = 'Zishu';
+            const contentSpan = document.createElement('span');
+            contentSpan.className = 'content';
+            msgDiv.appendChild(senderSpan);
+            msgDiv.appendChild(contentSpan);
+            chatContainer.appendChild(msgDiv);
+
+            let accumulatedText = '';
+            for (let i = 0; i < text.length; i++) {
+                accumulatedText += text[i];
+                contentSpan.textContent = accumulatedText;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                await new Promise(r => setTimeout(r, 10 + Math.random() * 8));
+            }
+
+            speakText(text);
+            return msgDiv;
+        }
+
+        // ============================================================
+        // MAIN QUERY HANDLER
+        // ============================================================
+        async function handleUserQuery(query) {
+            if (isProcessing) return;
+            isProcessing = true;
+            clearRestartTimer();
+            setOrbState(STATE.THINKING);
+
+            // Add user message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-msg';
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'sender';
+            senderSpan.textContent = 'You';
+            const contentSpan = document.createElement('span');
+            contentSpan.className = 'content';
+            contentSpan.textContent = query;
+            userDiv.appendChild(senderSpan);
+            userDiv.appendChild(contentSpan);
+            chatContainer.appendChild(userDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // LOCAL COMMAND DETECTION
+            const localCommand = detectLocalCommand(query);
+            if (localCommand && localCommand.type === 'open_website') {
+                openWebsiteDirectly(localCommand.value);
+                isProcessing = false;
+                setOrbState(STATE.IDLE);
+                scheduleRestart(1200);
+                return;
+            }
+
+            // SEND TO BACKEND
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        history: conversationHistory
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                const data = await response.json();
+                conversationHistory = data.history || [];
+                await streamResponse(data.response);
+
+            } catch (error) {
+                console.error('Error:', error);
+                addToolMessage('Error: ' + error.message);
+                setOrbState(STATE.IDLE);
+            } finally {
+                isProcessing = false;
+                if (state !== STATE.LISTENING) {
+                    setOrbState(STATE.IDLE);
+                    scheduleRestart(1000);
+                }
+            }
+        }
+
+        // ============================================================
+        // KEYBOARD SHORTCUT
+        // ============================================================
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                toggleListening();
+            }
+        });
+
+        // ============================================================
+        // PRELOAD TTS VOICES
+        // ============================================================
+        if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        setOrbState(STATE.IDLE);
+        orbSub.textContent = 'Tap orb to start';
+
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.className = 'message assistant-msg';
+        const ws = document.createElement('span');
+        ws.className = 'sender';
+        ws.textContent = 'Zishu';
+        const wc = document.createElement('span');
+        wc.className = 'content';
+        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main Hindi aur English dono samajhti hoon.';
+        welcomeDiv.appendChild(ws);
+        welcomeDiv.appendChild(wc);
+        chatContainer.appendChild(welcomeDiv);
+
+        console.log('🚀 Zishu AI v2.8 - Frontend');
+        console.log('📡 Backend URL:', BACKEND_URL);
+        console.log('🎯 Press Space or tap orb to start');
+    </script>
+</body>
+</html>
