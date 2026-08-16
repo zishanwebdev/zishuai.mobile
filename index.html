@@ -21,7 +21,6 @@
             color: #1a2332;
             overflow: hidden;
         }
-
         #header {
             display: flex;
             justify-content: space-between;
@@ -69,7 +68,6 @@
             background: #3b82f6;
             color: white;
         }
-
         #orb-container {
             display: flex;
             flex-direction: column;
@@ -118,7 +116,6 @@
             0% { transform: scale(1) translateY(0); }
             100% { transform: scale(1.04) translateY(-3px); }
         }
-
         #orb-status {
             margin-top: 14px;
             font-size: 16px;
@@ -132,7 +129,6 @@
             margin-top: 4px;
             font-weight: 400;
         }
-
         #chat-wrapper {
             flex: 1;
             min-height: 0;
@@ -163,7 +159,6 @@
             background: #d0d8e3;
             border-radius: 10px;
         }
-
         .message {
             margin: 8px 0;
             padding: 12px 18px;
@@ -205,7 +200,6 @@
         .message .content {
             display: block;
         }
-
         .tool-msg {
             background: #e9edf4;
             color: #6b7a8f;
@@ -217,7 +211,18 @@
             max-width: 85%;
             font-weight: 450;
         }
-
+        .stop-msg {
+            background: #f8d7da;
+            color: #721c24;
+            margin: 6px auto;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            text-align: center;
+            max-width: 85%;
+            font-weight: 450;
+            animation: fadeIn 0.3s ease;
+        }
         #footer {
             display: flex;
             justify-content: space-between;
@@ -227,7 +232,6 @@
             color: #9aa9bb;
             letter-spacing: 0.2px;
         }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -238,7 +242,6 @@
                 transform: translateY(0);
             }
         }
-
         @media (max-width: 480px) {
             body {
                 padding: 12px 14px 10px;
@@ -311,7 +314,7 @@
 
     <script>
         // ============================================================
-        // CONFIG - YOUR BACKEND URL
+        // CONFIG
         // ============================================================
         const BACKEND_URL = 'https://zishu-backend.onrender.com/api/chat';
         
@@ -333,6 +336,23 @@
         let isRestartScheduled = false;
         let isFirstActivation = true;
         let conversationHistory = [];
+        let isWebView = false;
+        let ttsRetryCount = 0;
+        const MAX_TTS_RETRIES = 3;
+        let isStopped = false;
+        let currentResponseText = '';
+
+        // ============================================================
+        // DETECT WEBVIEW
+        // ============================================================
+        function detectWebView() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                isWebView = true;
+                console.log('📱 Running in Android WebView');
+            }
+        }
+        detectWebView();
 
         // ============================================================
         // DOM REFS
@@ -344,7 +364,72 @@
         const statusBadge = document.getElementById('status-badge');
 
         // ============================================================
-        // WEBSITE ALIASES - HINDI + ENGLISH
+        // STOP WORDS - Hindi + English
+        // ============================================================
+        const STOP_WORDS = [
+            'stop', 'ruko', 'bas', 'band karo', 'band kar', 'rok', 'rok do',
+            'बंद करो', 'बंद कर', 'रुको', 'बस', 'बस करो', 'रोको',
+            'enough', 'thats enough', 'bass', 'rokna', 'rok do',
+            'quit', 'cancel', 'shut up', 'chup', 'चुप'
+        ];
+
+        // ============================================================
+        // LOCAL KNOWLEDGE BASE
+        // ============================================================
+        function getLocalAnswer(query) {
+            const q = query.toLowerCase().trim();
+            
+            // Creator info
+            if (q.includes('tumhe kisne banaya') || q.includes('tum kisne banaya') || 
+                q.includes('tumhari creator') || q.includes('tumhara maker') ||
+                q.includes('who created you') || q.includes('who made you') ||
+                q.includes('किसने बनाया') || q.includes('बनाने वाला')) {
+                return "मुझे Zishan ने बनाया है। Zishan ek talented developer hain aur unka vision hai ki AI ko sabke liye accessible banana.";
+            }
+            
+            // Zishan info
+            if (q.includes('zishan') && (q.includes('kaun') || q.includes('who') || 
+                q.includes('के बारे') || q.includes('about') || q.includes('कौन'))) {
+                return "Zishan StardustOfficial ke founder hain. Wo ek passionate developer hain jo AI aur technology mein deep interest rakhte hain. Unka maqsad hai ki AI ko simple aur useful banana.";
+            }
+            
+            // StardustOfficial info
+            if (q.includes('stardustofficial') || q.includes('stardust official') || 
+                q.includes('स्टारडस्ट') || q.includes('stardust') && q.includes('about')) {
+                return "StardustOfficial ek innovative tech company hai jo AI solutions, web development, aur digital products mein specialize karti hai. Company ka mission hai ki technology ko accessible aur impactful banana. Zishan is company ke founder aur CEO hain.";
+            }
+            
+            // Current date/time query
+            if (q.includes('date') || q.includes('today') || q.includes('aaj') || 
+                q.includes('तारीख') || q.includes('date kya hai') || q.includes('aaj ka')) {
+                const now = new Date();
+                const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                return `Aaj ki tareekh ${now.toLocaleDateString('hi-IN', options)} hai.`;
+            }
+            
+            if (q.includes('time') || q.includes('samay') || q.includes('समय') || 
+                q.includes('kya time') || q.includes('time kya hai')) {
+                const now = new Date();
+                return `Abhi ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} baj rahe hain.`;
+            }
+            
+            // Live updates query
+            if (q.includes('latest') || q.includes('today news') || q.includes('kya chal raha') ||
+                q.includes('नया') || q.includes('ताजा')) {
+                return "Mujhe real-time news ka access nahi hai, lekin main latest topics pe baat kar sakta hoon. Aap specific query puchh sakte hain!";
+            }
+            
+            // AI self-awareness
+            if (q.includes('tum kaun ho') || q.includes('who are you') || q.includes('तुम कौन हो') ||
+                q.includes('tum kya ho') || q.includes('what are you')) {
+                return "Main Zishu AI hoon - ek voice assistant jo Zishan ne banaya hai. Main StardustOfficial ka AI project hoon. Main Hindi aur English dono mein baat kar sakta hoon aur websites bhi open kar sakta hoon!";
+            }
+            
+            return null;
+        }
+
+        // ============================================================
+        // WEBSITE ALIASES
         // ============================================================
         const SITE_ALIASES = {
             youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
@@ -491,14 +576,67 @@
         }
 
         // ============================================================
+        // STOP RESPONSE FUNCTION
+        // ============================================================
+        function stopCurrentResponse() {
+            console.log('🛑 Stopping current response...');
+            isStopped = true;
+            
+            // Stop TTS
+            try {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                if (currentUtterance) {
+                    currentUtterance = null;
+                }
+            } catch (e) {
+                console.warn('⚠️ Error stopping TTS:', e);
+            }
+            
+            // Reset state
+            isProcessing = false;
+            currentResponseText = '';
+            
+            // Show stop message
+            const stopDiv = document.createElement('div');
+            stopDiv.className = 'stop-msg';
+            stopDiv.textContent = '⏹️ Response stopped. Listening again...';
+            chatContainer.appendChild(stopDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            setOrbState(STATE.IDLE);
+            
+            // Start listening again after short delay
+            setTimeout(() => {
+                isStopped = false;
+                if (state === STATE.IDLE) {
+                    startListening();
+                }
+            }, 500);
+        }
+
+        // ============================================================
+        // CHECK FOR STOP WORDS IN QUERY
+        // ============================================================
+        function isStopCommand(query) {
+            const q = query.toLowerCase().trim();
+            return STOP_WORDS.some(word => q.includes(word) || q === word);
+        }
+
+        // ============================================================
         // SPEECH RECOGNITION
         // ============================================================
         function initSpeechRecognition() {
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SR) {
                 orbStatus.textContent = 'Browser not supported';
+                if (isWebView) {
+                    orbSub.textContent = 'Try using Chrome browser';
+                }
                 return null;
             }
+
             const rec = new SR();
             rec.lang = 'hi-IN';
             rec.continuous = false;
@@ -517,7 +655,15 @@
             rec.onresult = (event) => {
                 const transcript = event.results[0][0].transcript.trim();
                 if (transcript.length > 0) {
+                    console.log('🎤 User said:', transcript);
                     stopListening();
+                    
+                    // Check if it's a stop command
+                    if (isStopCommand(transcript) && (state === STATE.SPEAKING || isProcessing)) {
+                        stopCurrentResponse();
+                        return;
+                    }
+                    
                     handleUserQuery(transcript);
                 }
             };
@@ -548,6 +694,9 @@
             return rec;
         }
 
+        // ============================================================
+        // LISTENING FUNCTIONS
+        // ============================================================
         function startListening() {
             clearRestartTimer();
             if (!recognition) {
@@ -558,16 +707,8 @@
                 recognition.start();
                 setOrbState(STATE.LISTENING);
             } catch (e) {
-                try {
-                    recognition.stop();
-                    setTimeout(() => {
-                        recognition.start();
-                        setOrbState(STATE.LISTENING);
-                    }, 200);
-                } catch (ex) {
-                    console.error('Failed to start:', ex);
-                    setOrbState(STATE.IDLE);
-                }
+                console.error('Failed to start:', e);
+                setOrbState(STATE.IDLE);
             }
         }
 
@@ -612,60 +753,140 @@
         }
 
         // ============================================================
-        // TTS
+        // TTS FUNCTION
         // ============================================================
         function speakText(text) {
+            console.log('🔊 Attempting to speak:', text.substring(0, 50) + '...');
+            
+            // Check if stopped
+            if (isStopped) {
+                console.log('🛑 Speech stopped by user');
+                return;
+            }
+            
+            ttsRetryCount = 0;
+            
             try {
-                if (currentUtterance) {
+                if (!window.speechSynthesis) {
+                    console.error('❌ Speech synthesis not available');
+                    return;
+                }
+
+                try {
                     window.speechSynthesis.cancel();
+                } catch (e) {}
+
+                let voices = window.speechSynthesis.getVoices();
+                if (voices.length === 0) {
+                    console.log('⏳ Voices not loaded yet, waiting...');
+                    window.speechSynthesis.onvoiceschanged = function() {
+                        voices = window.speechSynthesis.getVoices();
+                        if (voices.length > 0) {
+                            if (!isStopped) speakText(text);
+                        }
+                    };
+                    return;
                 }
 
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'hi-IN';
-                utterance.rate = 0.85;
+                utterance.rate = 0.9;
                 utterance.pitch = 1.1;
                 utterance.volume = 1;
 
-                const voices = window.speechSynthesis.getVoices();
-                const femaleVoices = voices.filter(v => 
-                    v.lang.startsWith('hi') && 
-                    (v.name.toLowerCase().includes('female') || 
-                     v.name.toLowerCase().includes('swara') ||
-                     v.name.toLowerCase().includes('lekh'))
-                );
-                if (femaleVoices.length > 0) {
-                    utterance.voice = femaleVoices[0];
-                } else {
-                    const hindiVoice = voices.find(v => v.lang.startsWith('hi'));
-                    if (hindiVoice) utterance.voice = hindiVoice;
+                let hindiVoice = null;
+                try {
+                    const femaleHindi = voices.filter(v => 
+                        v.lang.startsWith('hi') && 
+                        (v.name.toLowerCase().includes('female') || 
+                         v.name.toLowerCase().includes('swara') ||
+                         v.name.toLowerCase().includes('lekh') ||
+                         v.name.toLowerCase().includes('google') ||
+                         v.name.toLowerCase().includes('karen'))
+                    );
+                    
+                    if (femaleHindi.length > 0) {
+                        hindiVoice = femaleHindi[0];
+                        console.log('✅ Found female Hindi voice:', hindiVoice.name);
+                    } else {
+                        const anyHindi = voices.find(v => v.lang.startsWith('hi'));
+                        if (anyHindi) {
+                            hindiVoice = anyHindi;
+                            console.log('✅ Found Hindi voice:', anyHindi.name);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Voice selection error:', e);
+                }
+
+                if (hindiVoice) {
+                    utterance.voice = hindiVoice;
                 }
 
                 utterance.onstart = () => {
-                    setOrbState(STATE.SPEAKING);
+                    console.log('🔊 TTS started');
+                    if (!isStopped) {
+                        setOrbState(STATE.SPEAKING);
+                    }
                 };
 
                 utterance.onend = () => {
+                    console.log('🔊 TTS ended successfully');
                     currentUtterance = null;
-                    if (!isProcessing) {
+                    ttsRetryCount = 0;
+                    if (!isStopped && !isProcessing) {
                         setOrbState(STATE.IDLE);
                         scheduleRestart(1000);
                     }
                 };
 
-                utterance.onerror = () => {
+                utterance.onerror = (event) => {
+                    console.error('❌ TTS error:', event.error);
                     currentUtterance = null;
-                    if (!isProcessing) {
-                        setOrbState(STATE.IDLE);
-                        scheduleRestart(1000);
+                    
+                    if (isStopped) return;
+                    
+                    if (ttsRetryCount < MAX_TTS_RETRIES) {
+                        ttsRetryCount++;
+                        console.log(`🔄 Retrying TTS (${ttsRetryCount}/${MAX_TTS_RETRIES})...`);
+                        setTimeout(() => {
+                            if (!isStopped && !isProcessing) {
+                                speakText(text);
+                            }
+                        }, 500 * ttsRetryCount);
+                    } else {
+                        if (!isStopped && !isProcessing) {
+                            setOrbState(STATE.IDLE);
+                            scheduleRestart(1000);
+                        }
                     }
                 };
 
                 currentUtterance = utterance;
-                window.speechSynthesis.speak(utterance);
+                
+                try {
+                    window.speechSynthesis.speak(utterance);
+                } catch (e) {
+                    console.error('❌ Speak failed:', e);
+                }
+
+                const safetyTimeout = setTimeout(() => {
+                    if (state === STATE.SPEAKING && !isProcessing && !isStopped) {
+                        console.log('⚠️ TTS safety timeout - resetting');
+                        try {
+                            window.speechSynthesis.cancel();
+                        } catch (e) {}
+                        currentUtterance = null;
+                        setOrbState(STATE.IDLE);
+                        scheduleRestart(1000);
+                    }
+                }, Math.max(text.length * 30 + 2000, 3000));
+
+                utterance._safetyTimeout = safetyTimeout;
 
             } catch (error) {
-                console.error('TTS error:', error);
-                if (!isProcessing) {
+                console.error('❌ TTS exception:', error);
+                if (!isStopped && !isProcessing) {
                     setOrbState(STATE.IDLE);
                     scheduleRestart(1000);
                 }
@@ -673,9 +894,62 @@
         }
 
         // ============================================================
+        // FORCE VOICE LOADING
+        // ============================================================
+        function forceLoadVoices() {
+            if (!window.speechSynthesis) {
+                console.warn('⚠️ Speech synthesis not available');
+                return;
+            }
+
+            try {
+                let attempts = 0;
+                const maxAttempts = 5;
+                
+                function tryLoadVoices() {
+                    attempts++;
+                    const voices = window.speechSynthesis.getVoices();
+                    console.log(`📢 Voice load attempt ${attempts}: ${voices.length} voices found`);
+                    
+                    if (voices.length > 0) {
+                        console.log('✅ Voices loaded successfully');
+                        return true;
+                    }
+                    
+                    if (attempts < maxAttempts) {
+                        console.log(`⏳ Retrying voice load (${attempts}/${maxAttempts})...`);
+                        setTimeout(tryLoadVoices, 500 * attempts);
+                    } else {
+                        console.warn('⚠️ Could not load voices after multiple attempts');
+                    }
+                    return false;
+                }
+
+                tryLoadVoices();
+                
+                window.speechSynthesis.onvoiceschanged = function() {
+                    const voices = window.speechSynthesis.getVoices();
+                    console.log(`📢 Voices changed: ${voices.length} voices found`);
+                };
+
+            } catch (e) {
+                console.warn('⚠️ Error loading voices:', e);
+            }
+        }
+
+        // ============================================================
         // STREAMING RESPONSE
         // ============================================================
         async function streamResponse(text) {
+            // Store full response for stop functionality
+            currentResponseText = text;
+            
+            // Check if stopped during streaming
+            if (isStopped) {
+                console.log('🛑 Response streaming stopped');
+                return null;
+            }
+
             setOrbState(STATE.SPEAKING);
 
             const msgDiv = document.createElement('div');
@@ -690,14 +964,29 @@
             chatContainer.appendChild(msgDiv);
 
             let accumulatedText = '';
-            for (let i = 0; i < text.length; i++) {
-                accumulatedText += text[i];
+            const chunkSize = 3;
+            for (let i = 0; i < text.length; i += chunkSize) {
+                // Check if stopped during streaming
+                if (isStopped) {
+                    console.log('🛑 Streaming stopped mid-way');
+                    contentSpan.textContent = accumulatedText + '... [stopped]';
+                    return msgDiv;
+                }
+                
+                const chunk = text.substring(i, Math.min(i + chunkSize, text.length));
+                accumulatedText += chunk;
                 contentSpan.textContent = accumulatedText;
                 chatContainer.scrollTop = chatContainer.scrollHeight;
-                await new Promise(r => setTimeout(r, 10 + Math.random() * 8));
+                await new Promise(r => setTimeout(r, 20 + Math.random() * 10));
             }
 
-            speakText(text);
+            // Only speak if not stopped
+            if (!isStopped) {
+                setTimeout(() => {
+                    speakText(text);
+                }, 300);
+            }
+            
             return msgDiv;
         }
 
@@ -707,6 +996,7 @@
         async function handleUserQuery(query) {
             if (isProcessing) return;
             isProcessing = true;
+            isStopped = false;
             clearRestartTimer();
             setOrbState(STATE.THINKING);
 
@@ -724,6 +1014,18 @@
             chatContainer.appendChild(userDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            // Check local knowledge first
+            const localAnswer = getLocalAnswer(query);
+            if (localAnswer) {
+                await streamResponse(localAnswer);
+                isProcessing = false;
+                if (!isStopped) {
+                    setOrbState(STATE.IDLE);
+                    scheduleRestart(1000);
+                }
+                return;
+            }
+
             // LOCAL COMMAND DETECTION
             const localCommand = detectLocalCommand(query);
             if (localCommand && localCommand.type === 'open_website') {
@@ -736,13 +1038,16 @@
 
             // SEND TO BACKEND
             try {
+                // Add timestamp to query for latest answers
+                const timestampedQuery = `${query} (Current date: ${new Date().toISOString().split('T')[0]})`;
+                
                 const response = await fetch(BACKEND_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        query: query,
+                        query: timestampedQuery,
                         history: conversationHistory
                     })
                 });
@@ -753,6 +1058,14 @@
 
                 const data = await response.json();
                 conversationHistory = data.history || [];
+                
+                // Check if stopped during API call
+                if (isStopped) {
+                    console.log('🛑 Stopped during API call');
+                    isProcessing = false;
+                    return;
+                }
+                
                 await streamResponse(data.response);
 
             } catch (error) {
@@ -761,38 +1074,41 @@
                 setOrbState(STATE.IDLE);
             } finally {
                 isProcessing = false;
-                if (state !== STATE.LISTENING) {
-                    setOrbState(STATE.IDLE);
-                    scheduleRestart(1000);
+                if (!isStopped && state !== STATE.LISTENING) {
+                    setTimeout(() => {
+                        if (state !== STATE.SPEAKING && !isStopped) {
+                            setOrbState(STATE.IDLE);
+                            scheduleRestart(1000);
+                        }
+                    }, 500);
                 }
             }
         }
 
         // ============================================================
-        // KEYBOARD SHORTCUT
+        // KEYBOARD SHORTCUT - Space to stop when speaking
         // ============================================================
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
                 e.preventDefault();
-                toggleListening();
+                
+                // If currently speaking or processing, stop
+                if (state === STATE.SPEAKING || isProcessing) {
+                    stopCurrentResponse();
+                } else {
+                    toggleListening();
+                }
             }
         });
 
         // ============================================================
-        // PRELOAD TTS VOICES
-        // ============================================================
-        if (window.speechSynthesis) {
-            window.speechSynthesis.getVoices();
-            window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.getVoices();
-            };
-        }
-
-        // ============================================================
         // INIT
         // ============================================================
+        setTimeout(forceLoadVoices, 100);
+        setTimeout(forceLoadVoices, 500);
+        setTimeout(forceLoadVoices, 1000);
+
         setOrbState(STATE.IDLE);
-        orbSub.textContent = 'Tap orb to start';
 
         const welcomeDiv = document.createElement('div');
         welcomeDiv.className = 'message assistant-msg';
@@ -806,9 +1122,14 @@
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.8 - Frontend');
+        console.log('🚀 Zishu AI v2.8 - All Features Updated');
         console.log('📡 Backend URL:', BACKEND_URL);
-        console.log('🎯 Press Space or tap orb to start');
+        console.log('📱 WebView:', isWebView);
+        console.log('🎯 Features:');
+        console.log('  - Stop command: "Ruko", "Bas", "Stop"');
+        console.log('  - Creator: Zishan (StardustOfficial)');
+        console.log('  - Latest answers with timestamp');
+        console.log('  - Space to toggle/stop');
     </script>
 </body>
 </html>
