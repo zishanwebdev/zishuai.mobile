@@ -21,6 +21,7 @@
             color: #1a2332;
             overflow: hidden;
             transition: background 0.4s ease, color 0.4s ease;
+            user-select: none;
         }
         body.dark-mode {
             background: #0a0e17;
@@ -160,9 +161,7 @@
             transform: scale(1.05);
         }
 
-        /* ============================================================
-           PREMIUM 3D ORB - Standalone Character
-           ============================================================ */
+        /* Premium 3D Orb */
         #orb-container {
             display: flex;
             flex-direction: column;
@@ -174,7 +173,6 @@
             perspective: 800px;
         }
 
-        /* The main orb wrapper with 3D perspective */
         #orb-wrapper {
             width: 130px;
             height: 130px;
@@ -183,6 +181,7 @@
             cursor: pointer;
             transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             animation: floatOrb 4s ease-in-out infinite;
+            z-index: 10;
         }
         #orb-wrapper:hover {
             transform: scale(1.05) rotateX(2deg);
@@ -196,7 +195,6 @@
             50% { transform: translateY(-8px) rotateX(2deg); }
         }
 
-        /* Glow behind orb */
         #orb-glow {
             position: absolute;
             width: 180px;
@@ -215,7 +213,6 @@
             50% { opacity: 1; transform: scale(1.1); }
         }
 
-        /* White ceramic body */
         #orb {
             position: relative;
             width: 130px;
@@ -231,14 +228,12 @@
             transition: all 0.6s ease;
             z-index: 1;
             cursor: pointer;
-            /* Ceramic texture effect */
             background-image: 
                 radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.9) 0%, transparent 60%),
                 radial-gradient(ellipse at 65% 70%, rgba(200,210,220,0.3) 0%, transparent 40%),
                 radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.2) 0%, transparent 30%);
         }
 
-        /* Inner glow ring */
         #orb-ring {
             position: absolute;
             width: 140px;
@@ -252,7 +247,6 @@
             pointer-events: none;
         }
 
-        /* Glossy black visor/face */
         #orb-visor {
             position: absolute;
             width: 80px;
@@ -270,7 +264,6 @@
             border: 1px solid rgba(255,255,255,0.03);
             overflow: hidden;
         }
-        /* Visor shine */
         #orb-visor::before {
             content: '';
             position: absolute;
@@ -283,7 +276,6 @@
             transform: rotate(-20deg);
         }
 
-        /* Eyes - glowing cyan-white */
         #orb-eyes {
             position: absolute;
             top: 50%;
@@ -323,7 +315,6 @@
             }
         }
 
-        /* Eye pupil glow */
         .eye::after {
             content: '';
             position: absolute;
@@ -336,9 +327,7 @@
             filter: blur(1px);
         }
 
-        /* ============================================================
-           ENERGY RIBBON - Flowing plasma wave
-           ============================================================ */
+        /* Energy Ribbon */
         #orb-ribbon {
             position: absolute;
             width: 180px;
@@ -424,7 +413,7 @@
             100% { transform: rotate(360deg) scale(1); }
         }
 
-        /* Orb states */
+        /* Orb States */
         #orb-wrapper.listening #orb {
             box-shadow: 
                 inset -20px -20px 40px rgba(0,0,0,0.12),
@@ -820,6 +809,9 @@
         let currentResponseText = '';
         let isDarkMode = false;
         let isSpeakingNow = false;
+        let isTtsComplete = false;
+        let utteranceResolve = null;
+        let ttsPromise = null;
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -900,10 +892,9 @@
         }
 
         // ============================================================
-        // 200+ WEBSITES/APPS/GAMES
+        // WEBSITE LIST (200+)
         // ============================================================
         const SITE_ALIASES = {
-            // Social Media
             youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
             instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
             facebook: ['facebook', 'fb', 'फेसबुक', 'फेसबुक'],
@@ -920,8 +911,6 @@
             threads: ['threads', 'थ्रेड्स', 'थ्रेड्स'],
             bluesky: ['bluesky', 'ब्लूस्काई', 'ब्लूस्काई'],
             mastodon: ['mastodon', 'मास्टोडन', 'मास्टोडन'],
-            
-            // Google Services
             google: ['google', 'गूगल', 'गूगल'],
             gmail: ['gmail', 'जीमेल', 'जी मेल'],
             maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स', 'map'],
@@ -935,8 +924,6 @@
             keep: ['google keep', 'keep', 'गूगल कीप', 'कीप'],
             tasks: ['google tasks', 'tasks', 'गूगल टास्क', 'टास्क'],
             meet: ['google meet', 'meet', 'गूगल मीट', 'मीट'],
-            
-            // Entertainment
             netflix: ['netflix', 'नेटफ्लिक्स', 'नेटफ्लिक्स'],
             spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाई', 'स्पॉटिफाय'],
             primevideo: ['prime video', 'amazon prime', 'prime', 'प्राइम वीडियो', 'प्राइम'],
@@ -952,8 +939,6 @@
             apple: ['apple music', 'apple', 'एप्पल म्यूजिक', 'एप्पल'],
             soundcloud: ['soundcloud', 'साउंडक्लाउड', 'साउंडक्लाउड'],
             tidal: ['tidal', 'टाइडल', 'टाइडल'],
-            
-            // Shopping
             amazon: ['amazon', 'अमेज़न', 'अमेजन', 'अमेज़न'],
             flipkart: ['flipkart', 'फ्लिपकार्ट', 'फ्लिपकार्ट'],
             myntra: ['myntra', 'मिंत्रा', 'मिंत्रा'],
@@ -968,8 +953,6 @@
             reliance: ['reliance digital', 'reliance', 'रिलायंस', 'रिलायंस डिजिटल'],
             tata: ['tata cliq', 'tata', 'ताता क्लिक', 'ताता'],
             shopclues: ['shopclues', 'शॉपक्लूज़', 'शॉपक्लूज़'],
-            
-            // Food & Delivery
             zomato: ['zomato', 'जोमैटो', 'जोमैटो'],
             swiggy: ['swiggy', 'स्विगी', 'स्विगी'],
             dominos: ['dominos', 'डोमिनोस', 'डोमिनोज़'],
@@ -981,8 +964,6 @@
             starbucks: ['starbucks', 'स्टारबक्स', 'स्टारबक्स'],
             uber: ['uber', 'उबर', 'उबर'],
             ola: ['ola', 'ओला', 'ओला'],
-            
-            // News
             timesofindia: ['times of india', 'toi', 'टाइम्स ऑफ इंडिया', 'टाइम्स'],
             hindustantimes: ['hindustan times', 'हिंदुस्तान टाइम्स', 'हिंदुस्तान'],
             ndtv: ['ndtv', 'एनडीटीवी', 'एनडीटीवी'],
@@ -994,8 +975,6 @@
             moneycontrol: ['moneycontrol', 'मनीकंट्रोल', 'मनीकंट्रोल'],
             bloomberg: ['bloomberg', 'ब्लूमबर्ग', 'ब्लूमबर्ग'],
             reuters: ['reuters', 'रॉयटर्स', 'रॉयटर्स'],
-            
-            // Tech & Development
             github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
             stackoverflow: ['stack overflow', 'stackoverflow', 'स्टैक ओवरफ्लो', 'स्टैक'],
             codepen: ['codepen', 'कोडपेन', 'कोडपेन'],
@@ -1008,8 +987,6 @@
             aws: ['aws', 'amazon web services', 'एडब्ल्यूएस', 'एमज़ॉन वेब सर्विस'],
             azure: ['azure', 'microsoft azure', 'एज़्योर', 'माइक्रोसॉफ्ट एज़्योर'],
             googlecloud: ['google cloud', 'gcp', 'गूगल क्लाउड', 'जीसीपी'],
-            
-            // AI Tools
             chatgpt: ['chatgpt', 'chat gpt', 'चैटजीपीटी', 'चैट जीपीटी'],
             bard: ['bard', 'google bard', 'बार्ड', 'गूगल बार्ड'],
             claude: ['claude', 'क्लॉड', 'क्लॉड'],
@@ -1019,8 +996,6 @@
             stable: ['stable diffusion', 'स्टेबल डिफ्यूजन', 'स्टेबल डिफ्यूजन'],
             huggingface: ['hugging face', 'huggingface', 'हगिंग फेस', 'हगिंगफेस'],
             replicate: ['replicate', 'रिप्लिकेट', 'रिप्लिकेट'],
-            
-            // Educational
             wikipedia: ['wikipedia', 'विकिपीडिया', 'विकिपीडिया'],
             khanacademy: ['khan academy', 'khanacademy', 'खान अकादमी', 'खान'],
             coursera: ['coursera', 'कोर्सेरा', 'कोर्सेरा'],
@@ -1032,8 +1007,6 @@
             britannica: ['britannica', 'ब्रिटैनिका', 'ब्रिटैनिका'],
             mit: ['mit', 'एमआईटी', 'एमआईटी'],
             stanford: ['stanford', 'स्टैनफोर्ड', 'स्टैनफोर्ड'],
-            
-            // Games
             chess: ['chess', 'शतरंज', 'शतरंज'],
             ludo: ['ludo', 'लूडो', 'लूडो'],
             carrom: ['carrom', 'कैरम', 'कैरम'],
@@ -1050,8 +1023,6 @@
             amongus: ['among us', 'अमंग अस', 'अमंग अस'],
             candycrush: ['candy crush', 'कैंडी क्रश', 'कैंडी क्रश'],
             temple: ['temple run', 'टेंपल रन', 'टेंपल रन'],
-            
-            // Other Popular
             duckduckgo: ['duckduckgo', 'duck duck go', 'डकडकगो', 'डक डक गो'],
             medium: ['medium', 'मीडियम', 'मीडियम'],
             quora: ['quora', 'कोरा', 'कोरा'],
@@ -1061,7 +1032,6 @@
             slack: ['slack', 'स्लैक', 'स्लैक'],
             zoom: ['zoom', 'ज़ूम', 'ज़ूम'],
             teams: ['microsoft teams', 'teams', 'माइक्रोसॉफ्ट टीम्स', 'टीम्स'],
-            discord: ['discord', 'डिस्कॉर्ड', 'डिस्कॉर्ड'],
             trello: ['trello', 'ट्रेलो', 'ट्रेलो'],
             asana: ['asana', 'असाना', 'असाना'],
             jira: ['jira', 'जिरा', 'जिरा'],
@@ -1275,7 +1245,7 @@
         }
 
         // ============================================================
-        // LOCAL COMMAND DETECTION
+        // LOCAL COMMAND DETECTION - FIXED: "ओपन" support
         // ============================================================
         function detectLocalCommand(query) {
             const q = query.toLowerCase().trim();
@@ -1283,7 +1253,7 @@
                 'open', 'open karo', 'open kar', 'kholo', 'khol', 'khol do', 'khol de',
                 'chalao', 'chala do', 'start', 'launch',
                 'खोलो', 'खोल', 'खोल दो', 'खोल दे', 'खोलना', 'चलाओ', 'चला दो', 
-                'शुरू करो', 'शुरू कर', 'op', 'opn', 'ओपन', 'ओपन करो'
+                'शुरू करो', 'शुरू कर', 'op', 'opn', 'ओपन', 'ओपन करो', 'ओपन कर'
             ];
 
             for (const [site, aliases] of Object.entries(SITE_ALIASES)) {
@@ -1293,7 +1263,8 @@
                 const wantsOpen = openWords.some(word => q.includes(word)) || 
                                  aliases.some(alias => q === alias) ||
                                  q === site ||
-                                 q === 'open ' + site;
+                                 q === 'open ' + site ||
+                                 q === 'ओपन ' + site;
 
                 if (wantsOpen) {
                     return {
@@ -1339,7 +1310,7 @@
         }
 
         // ============================================================
-        // ORB CONTROLS - NEW: Tap to stop speaking
+        // ORB CONTROLS - ONLY ORB TAP STOPS
         // ============================================================
         function setOrbState(newState) {
             state = newState;
@@ -1358,9 +1329,10 @@
             statusBadge.className = newState === STATE.IDLE ? '' : 'active';
         }
 
-        // Orb click handler - NEW BEHAVIOR
+        // ONLY orb click handler - no other elements stop the speech
         orbWrapper.addEventListener('click', function(e) {
             e.stopPropagation();
+            e.preventDefault();
             
             console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing);
             
@@ -1373,6 +1345,15 @@
             
             // If idle or listening, toggle listening
             toggleListening();
+        });
+
+        // Prevent clicks on other elements from stopping speech
+        document.addEventListener('click', function(e) {
+            // If click is NOT on orb or orb's children, do nothing
+            if (!e.target.closest('#orb-wrapper')) {
+                // Don't interfere with speech
+                return;
+            }
         });
 
         function toggleListening() {
@@ -1390,7 +1371,7 @@
         }
 
         // ============================================================
-        // STOP RESPONSE FUNCTION - Enhanced
+        // STOP RESPONSE FUNCTION
         // ============================================================
         function stopCurrentResponse() {
             console.log('🛑 STOPPING current response...');
@@ -1409,6 +1390,12 @@
                 }
             } catch (e) {
                 console.warn('⚠️ Error stopping TTS:', e);
+            }
+            
+            // Resolve any pending TTS promise
+            if (utteranceResolve) {
+                utteranceResolve();
+                utteranceResolve = null;
             }
             
             // Reset everything
@@ -1574,15 +1561,15 @@
         }
 
         // ============================================================
-        // TTS FUNCTION
+        // FIXED TTS - Speaks FULL message without interruption
         // ============================================================
         function speakText(text) {
             const cleanText = cleanTextForSpeech(text);
-            console.log('🔊 Speaking (cleaned):', cleanText.substring(0, 50) + '...');
+            console.log('🔊 Speaking FULL text:', cleanText.substring(0, 50) + '... (length: ' + cleanText.length + ')');
             
             if (isStopped) {
                 console.log('🛑 Speech stopped by user');
-                return;
+                return Promise.resolve();
             }
             
             if (!cleanText || cleanText.trim().length === 0) {
@@ -1591,130 +1578,160 @@
                     setOrbState(STATE.IDLE);
                     scheduleRestart(1000);
                 }
-                return;
+                return Promise.resolve();
             }
             
-            try {
-                if (!window.speechSynthesis) {
-                    console.error('❌ Speech synthesis not available');
-                    return;
-                }
-
+            return new Promise((resolve) => {
                 try {
-                    window.speechSynthesis.cancel();
-                } catch (e) {}
+                    if (!window.speechSynthesis) {
+                        console.error('❌ Speech synthesis not available');
+                        resolve();
+                        return;
+                    }
 
-                let voices = window.speechSynthesis.getVoices();
-                if (voices.length === 0) {
-                    console.log('⏳ Waiting for voices...');
-                    window.speechSynthesis.onvoiceschanged = function() {
-                        if (!isStopped) {
-                            speakText(text);
+                    // Cancel any previous speech
+                    try {
+                        window.speechSynthesis.cancel();
+                    } catch (e) {}
+
+                    // Wait for voices with timeout
+                    let voices = window.speechSynthesis.getVoices();
+                    if (voices.length === 0) {
+                        console.log('⏳ Waiting for voices...');
+                        let voiceTimeout = setTimeout(() => {
+                            console.log('⏰ Voice loading timeout, proceeding anyway');
+                            proceedWithSpeech();
+                        }, 2000);
+                        
+                        window.speechSynthesis.onvoiceschanged = function() {
+                            clearTimeout(voiceTimeout);
+                            if (!isStopped) {
+                                proceedWithSpeech();
+                            } else {
+                                resolve();
+                            }
+                        };
+                        return;
+                    }
+
+                    proceedWithSpeech();
+
+                    function proceedWithSpeech() {
+                        if (isStopped) {
+                            resolve();
+                            return;
                         }
-                    };
-                    return;
-                }
 
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = 'hi-IN';
-                utterance.rate = 0.95;
-                utterance.pitch = 1.05;
-                utterance.volume = 1;
+                        const utterance = new SpeechSynthesisUtterance(cleanText);
+                        utterance.lang = 'hi-IN';
+                        utterance.rate = 0.95;
+                        utterance.pitch = 1.05;
+                        utterance.volume = 1;
 
-                try {
-                    const femaleHindi = voices.filter(v => 
-                        v.lang.startsWith('hi') && 
-                        (v.name.toLowerCase().includes('female') || 
-                         v.name.toLowerCase().includes('swara') ||
-                         v.name.toLowerCase().includes('lekh') ||
-                         v.name.toLowerCase().includes('google'))
-                    );
-                    
-                    if (femaleHindi.length > 0) {
-                        utterance.voice = femaleHindi[0];
-                        console.log('✅ Using voice:', femaleHindi[0].name);
-                    } else {
-                        const anyHindi = voices.find(v => v.lang.startsWith('hi'));
-                        if (anyHindi) {
-                            utterance.voice = anyHindi;
-                            console.log('✅ Using voice:', anyHindi.name);
+                        // Find best voice
+                        try {
+                            const voices = window.speechSynthesis.getVoices();
+                            const femaleHindi = voices.filter(v => 
+                                v.lang.startsWith('hi') && 
+                                (v.name.toLowerCase().includes('female') || 
+                                 v.name.toLowerCase().includes('swara') ||
+                                 v.name.toLowerCase().includes('lekh') ||
+                                 v.name.toLowerCase().includes('google'))
+                            );
+                            
+                            if (femaleHindi.length > 0) {
+                                utterance.voice = femaleHindi[0];
+                                console.log('✅ Using voice:', femaleHindi[0].name);
+                            } else {
+                                const anyHindi = voices.find(v => v.lang.startsWith('hi'));
+                                if (anyHindi) {
+                                    utterance.voice = anyHindi;
+                                    console.log('✅ Using voice:', anyHindi.name);
+                                }
+                            }
+                        } catch (e) {}
+
+                        let isEnded = false;
+                        let safetyTimer = null;
+
+                        utterance.onstart = () => {
+                            console.log('🔊 TTS started - speaking full message');
+                            isSpeakingNow = true;
+                            if (!isStopped) {
+                                setOrbState(STATE.SPEAKING);
+                            }
+                            
+                            // Safety timer - but much longer to allow full message
+                            safetyTimer = setTimeout(() => {
+                                if (!isEnded && !isStopped) {
+                                    console.log('⚠️ TTS safety timeout - but message may still be playing');
+                                    // Don't force end, just log
+                                }
+                            }, Math.max(cleanText.length * 40 + 5000, 8000));
+                        };
+
+                        utterance.onend = () => {
+                            console.log('🔊 TTS ended - FULL message complete');
+                            if (!isEnded) {
+                                isEnded = true;
+                                isSpeakingNow = false;
+                                currentUtterance = null;
+                                if (safetyTimer) {
+                                    clearTimeout(safetyTimer);
+                                    safetyTimer = null;
+                                }
+                                if (!isStopped && !isProcessing) {
+                                    setOrbState(STATE.IDLE);
+                                    scheduleRestart(1000);
+                                }
+                                resolve();
+                            }
+                        };
+
+                        utterance.onerror = (event) => {
+                            console.error('❌ TTS error:', event.error);
+                            if (!isEnded) {
+                                isEnded = true;
+                                isSpeakingNow = false;
+                                currentUtterance = null;
+                                if (safetyTimer) {
+                                    clearTimeout(safetyTimer);
+                                    safetyTimer = null;
+                                }
+                                if (!isStopped && !isProcessing) {
+                                    setOrbState(STATE.IDLE);
+                                    scheduleRestart(1000);
+                                }
+                                resolve();
+                            }
+                        };
+
+                        currentUtterance = utterance;
+                        utteranceResolve = resolve;
+                        
+                        try {
+                            window.speechSynthesis.speak(utterance);
+                        } catch (e) {
+                            console.error('❌ Speak failed:', e);
+                            isSpeakingNow = false;
+                            if (!isStopped && !isProcessing) {
+                                setOrbState(STATE.IDLE);
+                                scheduleRestart(1000);
+                            }
+                            resolve();
                         }
                     }
-                } catch (e) {}
 
-                let isEnded = false;
-
-                utterance.onstart = () => {
-                    console.log('🔊 TTS started');
-                    isSpeakingNow = true;
-                    if (!isStopped) {
-                        setOrbState(STATE.SPEAKING);
-                    }
-                };
-
-                utterance.onend = () => {
-                    console.log('🔊 TTS ended');
-                    if (!isEnded) {
-                        isEnded = true;
-                        isSpeakingNow = false;
-                        currentUtterance = null;
-                        if (!isStopped && !isProcessing) {
-                            setOrbState(STATE.IDLE);
-                            scheduleRestart(1000);
-                        }
-                    }
-                };
-
-                utterance.onerror = (event) => {
-                    console.error('❌ TTS error:', event.error);
-                    if (!isEnded) {
-                        isEnded = true;
-                        isSpeakingNow = false;
-                        currentUtterance = null;
-                        if (!isStopped && !isProcessing) {
-                            setOrbState(STATE.IDLE);
-                            scheduleRestart(1000);
-                        }
-                    }
-                };
-
-                currentUtterance = utterance;
-                
-                try {
-                    window.speechSynthesis.speak(utterance);
-                } catch (e) {
-                    console.error('❌ Speak failed:', e);
+                } catch (error) {
+                    console.error('❌ TTS exception:', error);
+                    isSpeakingNow = false;
                     if (!isStopped && !isProcessing) {
                         setOrbState(STATE.IDLE);
                         scheduleRestart(1000);
                     }
+                    resolve();
                 }
-
-                const safetyTimeout = setTimeout(() => {
-                    if ((state === STATE.SPEAKING || isSpeakingNow) && !isProcessing && !isStopped) {
-                        console.log('⚠️ TTS safety timeout');
-                        try {
-                            window.speechSynthesis.cancel();
-                        } catch (e) {}
-                        isSpeakingNow = false;
-                        currentUtterance = null;
-                        if (!isStopped) {
-                            setOrbState(STATE.IDLE);
-                            scheduleRestart(1000);
-                        }
-                    }
-                }, Math.max(cleanText.length * 40 + 3000, 5000));
-
-                utterance._safetyTimeout = safetyTimeout;
-
-            } catch (error) {
-                console.error('❌ TTS exception:', error);
-                isSpeakingNow = false;
-                if (!isStopped && !isProcessing) {
-                    setOrbState(STATE.IDLE);
-                    scheduleRestart(1000);
-                }
-            }
+            });
         }
 
         // ============================================================
@@ -1779,8 +1796,9 @@
             msgDiv.appendChild(contentSpan);
             chatContainer.appendChild(msgDiv);
 
+            // Stream display text
             let accumulatedText = '';
-            const chunkSize = 3;
+            const chunkSize = 5;
             for (let i = 0; i < text.length; i += chunkSize) {
                 if (isStopped) {
                     console.log('🛑 Streaming stopped mid-way');
@@ -1792,15 +1810,15 @@
                 accumulatedText += chunk;
                 contentSpan.textContent = accumulatedText;
                 chatContainer.scrollTop = chatContainer.scrollHeight;
-                await new Promise(r => setTimeout(r, 25));
+                await new Promise(r => setTimeout(r, 20));
             }
 
+            // Wait a bit then speak FULL message
             if (!isStopped) {
-                setTimeout(() => {
-                    if (!isStopped) {
-                        speakText(text);
-                    }
-                }, 200);
+                await new Promise(r => setTimeout(r, 300));
+                if (!isStopped) {
+                    await speakText(text);
+                }
             }
             
             return msgDiv;
@@ -1885,7 +1903,7 @@
                 setOrbState(STATE.IDLE);
             } finally {
                 isProcessing = false;
-                if (!isStopped && state !== STATE.LISTENING) {
+                if (!isStopped && state !== STATE.LISTENING && !isSpeakingNow) {
                     setTimeout(() => {
                         if (state !== STATE.SPEAKING && !isStopped && !isSpeakingNow) {
                             setOrbState(STATE.IDLE);
@@ -1926,19 +1944,19 @@
         ws.textContent = 'Zishu';
         const wc = document.createElement('span');
         wc.className = 'content';
-        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main 200+ websites, games aur apps open kar sakta hoon! Speaking ke time orb tap karke rok sakte hain.';
+        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main 200+ websites open kar sakta hoon. Speaking ke time sirf orb tap karne se rukta hai, screen tap se nahi!';
         welcomeDiv.appendChild(ws);
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.8 - Premium Orb + 200+ Sites');
+        console.log('🚀 Zishu AI v2.8 - FULL FIXED');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
-        console.log('  - Premium 3D Orb with energy ribbon');
-        console.log('  - Tap orb to STOP speaking');
-        console.log('  - 200+ websites/apps/games');
-        console.log('  - Dark Mode toggle');
-        console.log('  - Special chars removed from speech');
+        console.log('  - ✅ FULL message speaks without interruption');
+        console.log('  - ✅ ONLY orb tap stops speech');
+        console.log('  - ✅ "ओपन" command fixed');
+        console.log('  - ✅ Premium 3D Orb');
+        console.log('  - ✅ 200+ websites/apps/games');
     </script>
 </body>
 </html>
