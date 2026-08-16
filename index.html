@@ -190,42 +190,6 @@
             transform: scale(0.95);
         }
 
-        /* First tap indicator */
-        #first-tap-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: rgba(59, 130, 246, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            pointer-events: none;
-            animation: pulseOverlay 2s ease-in-out infinite;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-        }
-        #first-tap-overlay.show {
-            opacity: 1;
-        }
-        #first-tap-overlay span {
-            color: #3b82f6;
-            font-size: 12px;
-            font-weight: 600;
-            background: rgba(255,255,255,0.9);
-            padding: 6px 14px;
-            border-radius: 20px;
-            box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
-            pointer-events: none;
-        }
-        @keyframes pulseOverlay {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
         @keyframes floatOrb {
             0%, 100% { transform: translateY(0px) rotateX(0deg); }
             50% { transform: translateY(-8px) rotateX(2deg); }
@@ -817,11 +781,8 @@
                     </div>
                 </div>
             </div>
-            <div id="first-tap-overlay" class="show">
-                <span>👆 Tap to Activate</span>
-            </div>
         </div>
-        <div id="orb-status">Tap orb to start</div>
+        <div id="orb-status">Tap orb or say "Zishu" to start</div>
         <div id="orb-sub">First tap to enable microphone</div>
     </div>
 
@@ -864,7 +825,7 @@
         let isDarkMode = false;
         let isSpeakingNow = false;
         let utteranceResolve = null;
-        let isSpeechActivated = false; // WebView speech activation flag
+        let isWakeWordActive = false;
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -901,62 +862,6 @@
         const orbSub = document.getElementById('orb-sub');
         const chatContainer = document.getElementById('chat-container');
         const statusBadge = document.getElementById('status-badge');
-        const firstTapOverlay = document.getElementById('first-tap-overlay');
-
-        // ============================================================
-        // SPEECH ACTIVATION - WebView Fix
-        // ============================================================
-        function activateSpeechSystem() {
-            if (isSpeechActivated) return;
-            
-            console.log('🔊 Activating speech system for WebView...');
-            
-            try {
-                // Force speech synthesis to initialize with a dummy utterance
-                if (window.speechSynthesis) {
-                    // Cancel any pending speech
-                    window.speechSynthesis.cancel();
-                    
-                    // Create a dummy utterance to activate the system
-                    const dummy = new SpeechSynthesisUtterance(' ');
-                    dummy.volume = 0;
-                    dummy.rate = 0.1;
-                    dummy.pitch = 0.1;
-                    
-                    // Play dummy to activate
-                    window.speechSynthesis.speak(dummy);
-                    
-                    // Cancel immediately so it doesn't make sound
-                    setTimeout(() => {
-                        window.speechSynthesis.cancel();
-                        console.log('✅ Speech system activated!');
-                    }, 100);
-                }
-                
-                // Force load voices
-                if (window.speechSynthesis) {
-                    window.speechSynthesis.getVoices();
-                }
-                
-                isSpeechActivated = true;
-                
-                // Hide first tap overlay
-                firstTapOverlay.classList.remove('show');
-                
-                // Update status
-                orbSub.textContent = 'Ready! Tap orb or say "Zishu"';
-                
-                // Start listening automatically after activation
-                setTimeout(() => {
-                    startListening();
-                }, 300);
-                
-            } catch (e) {
-                console.warn('⚠️ Speech activation warning:', e);
-                isSpeechActivated = true;
-                firstTapOverlay.classList.remove('show');
-            }
-        }
 
         // ============================================================
         // WAKE WORDS
@@ -994,6 +899,7 @@
                     }
                     const diff = alarmTime - now;
                     if (diff > 0) {
+                        // Store alarm in localStorage
                         const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
                         alarms.push({
                             time: alarmTime.toISOString(),
@@ -1068,14 +974,17 @@
                         alarm.active = false;
                         const msg = `⏰ ALARM! ${alarm.message}`;
                         addToolMessage('🔔 ' + msg);
+                        // Speak alarm
                         if (!isProcessing) {
                             speakText('उठो! ' + alarm.message);
                         }
+                        // Store updated alarms
                         localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
                     }
                 }
             });
         }
+        // Check alarms every 30 seconds
         setInterval(checkAlarms, 30000);
 
         // ============================================================
@@ -1546,7 +1455,7 @@
             orbWrapper.className = newState;
 
             const statusMap = {
-                idle: ['Zishu is ready', 'Say "Zishu" or tap orb', '● Idle'],
+                idle: ['Zishu is ready', 'Say "Zishu" to start', '● Idle'],
                 listening: ['Listening...', 'Speak now', '● Listening'],
                 thinking: ['Thinking...', 'Processing your request', '◉ Thinking'],
                 speaking: ['Speaking...', 'Tap orb to stop', '● Speaking']
@@ -1558,28 +1467,19 @@
             statusBadge.className = newState === STATE.IDLE ? '' : 'active';
         }
 
-        // Orb click handler - WITH SPEECH ACTIVATION
+        // Orb click handler
         orbWrapper.addEventListener('click', function(e) {
             e.stopPropagation();
             e.preventDefault();
             
-            console.log('🎯 Orb clicked. State:', state);
+            console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing);
             
-            // FIRST TAP - Activate speech system
-            if (!isSpeechActivated) {
-                console.log('🔊 First tap - Activating speech system...');
-                activateSpeechSystem();
-                return;
-            }
-            
-            // If speaking or processing, STOP
             if (isSpeakingNow || state === STATE.SPEAKING || isProcessing) {
                 console.log('🛑 Orb click - STOPPING response');
                 stopCurrentResponse();
                 return;
             }
             
-            // Normal toggle
             toggleListening();
         });
 
@@ -1689,6 +1589,7 @@
                     // Check for wake word
                     if (isWakeWord(transcript) && state === STATE.IDLE) {
                         console.log('🔊 Wake word detected! Activating...');
+                        // If wake word detected, start listening
                         if (!isProcessing) {
                             stopListening();
                             setTimeout(() => {
@@ -2036,6 +1937,7 @@
             msgDiv.appendChild(contentSpan);
             chatContainer.appendChild(msgDiv);
 
+            // Smooth streaming - use requestAnimationFrame for smoother updates
             let accumulatedText = '';
             const chunkSize = 3;
             let index = 0;
@@ -2048,6 +1950,7 @@
                 }
                 
                 if (index >= text.length) {
+                    // Streaming complete
                     if (!isStopped) {
                         setTimeout(() => {
                             if (!isStopped) {
@@ -2065,6 +1968,7 @@
                 
                 index += chunkSize;
                 
+                // Use requestAnimationFrame for smoother updates
                 requestAnimationFrame(() => {
                     setTimeout(streamNextChunk, 15);
                 });
@@ -2099,6 +2003,7 @@
             chatContainer.appendChild(userDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            // Check for Actions (Alarm, Reminder, Notes)
             const actionResult = handleActions(query);
             if (actionResult) {
                 addActionMessage(actionResult);
@@ -2210,25 +2115,21 @@
         ws.textContent = 'Zishu';
         const wc = document.createElement('span');
         wc.className = 'content';
-        wc.textContent = 'Namaste! Main Zishu hoon. Pehle orb tap karein speech activate karne ke liye. Phir "Zishu" bole ya orb tap karein. Main alarm, reminder, notes save kar sakta hoon! 200+ websites bhi open kar sakta hoon.';
+        wc.textContent = 'Namaste! Main Zishu hoon. "Zishu" bole ya orb tap karein. Main alarm, reminder, notes save kar sakta hoon! 200+ websites bhi open kar sakta hoon.';
         welcomeDiv.appendChild(ws);
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.8 - WebView Speech Activation FIXED');
+        console.log('🚀 Zishu AI v2.8 - ALL FIXED');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
-        console.log('  - ✅ First tap activates speech system');
-        console.log('  - ✅ Wake word: "Zishu", "Hey Zishu"');
+        console.log('  - ✅ Wake word: "Zishu", "Hey Zishu", "Hi Zishu"');
         console.log('  - ✅ Full message speaks without glitch');
         console.log('  - ✅ ONLY orb tap stops speech');
-        console.log('  - ✅ Alarm, Reminder, Notes - REAL');
+        console.log('  - ✅ Alarm, Reminder, Notes - REAL functionality');
+        console.log('  - ✅ "ओपन" command fixed');
+        console.log('  - ✅ Premium 3D Orb');
         console.log('  - ✅ 200+ websites/apps/games');
-        
-        // Show first tap prompt
-        if (isWebView) {
-            console.log('📱 WebView detected - First tap required for speech activation');
-        }
     </script>
 </body>
 </html>
