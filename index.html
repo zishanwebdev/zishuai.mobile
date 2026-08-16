@@ -20,7 +20,59 @@
             padding: 20px 24px 16px;
             color: #1a2332;
             overflow: hidden;
+            transition: background 0.4s ease, color 0.4s ease;
         }
+        body.dark-mode {
+            background: #0a0e17;
+            color: #e8edf5;
+        }
+        body.dark-mode #chat-wrapper {
+            background: #131b2e;
+            border-color: #1e2a3f;
+        }
+        body.dark-mode #chat-container::-webkit-scrollbar-track {
+            background: #1a2438;
+        }
+        body.dark-mode #chat-container::-webkit-scrollbar-thumb {
+            background: #2a3a55;
+        }
+        body.dark-mode .assistant-msg {
+            background: #1a2438;
+            color: #e8edf5;
+        }
+        body.dark-mode .user-msg {
+            background: #3b82f6;
+        }
+        body.dark-mode .tool-msg {
+            background: #1a2438;
+            color: #8aa0c0;
+        }
+        body.dark-mode .stop-msg {
+            background: #2a1a1a;
+            color: #ff6b6b;
+        }
+        body.dark-mode #status-badge {
+            background: #1a2438;
+            color: #8aa0c0;
+        }
+        body.dark-mode #status-badge.active {
+            background: #3b82f6;
+            color: white;
+        }
+        body.dark-mode #orb-status {
+            color: #e8edf5;
+        }
+        body.dark-mode #orb-sub {
+            color: #8aa0c0;
+        }
+        body.dark-mode #footer {
+            color: #4a5a7a;
+        }
+        body.dark-mode #brand .sub {
+            color: #8aa0c0;
+            -webkit-text-fill-color: #8aa0c0;
+        }
+
         #header {
             display: flex;
             justify-content: space-between;
@@ -28,6 +80,11 @@
             margin-bottom: 16px;
             flex-shrink: 0;
             padding: 0 4px;
+        }
+        #header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         #brand {
             display: flex;
@@ -55,6 +112,11 @@
             background: none;
             margin-left: 4px;
         }
+        #header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         #status-badge {
             font-size: 13px;
             font-weight: 500;
@@ -68,6 +130,36 @@
             background: #3b82f6;
             color: white;
         }
+        #dark-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e9edf4;
+            width: 40px;
+            height: 40px;
+        }
+        body.dark-mode #dark-toggle {
+            background: #1a2438;
+        }
+        #dark-toggle svg {
+            width: 24px;
+            height: 24px;
+            fill: #1a2332;
+            transition: fill 0.3s ease;
+        }
+        body.dark-mode #dark-toggle svg {
+            fill: #e8edf5;
+        }
+        #dark-toggle:hover {
+            transform: scale(1.05);
+        }
+
         #orb-container {
             display: flex;
             flex-direction: column;
@@ -122,12 +214,14 @@
             font-weight: 600;
             color: #1a2332;
             letter-spacing: -0.2px;
+            transition: color 0.3s ease;
         }
         #orb-sub {
             font-size: 13px;
             color: #6b7a8f;
             margin-top: 4px;
             font-weight: 400;
+            transition: color 0.3s ease;
         }
         #chat-wrapper {
             flex: 1;
@@ -142,6 +236,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            transition: background 0.4s ease, border-color 0.4s ease;
         }
         #chat-container {
             flex: 1;
@@ -154,6 +249,7 @@
         }
         #chat-container::-webkit-scrollbar-track {
             background: #f1f4f9;
+            transition: background 0.3s ease;
         }
         #chat-container::-webkit-scrollbar-thumb {
             background: #d0d8e3;
@@ -182,6 +278,7 @@
             color: #1a2332;
             margin-right: auto;
             border-bottom-left-radius: 4px;
+            transition: background 0.3s ease, color 0.3s ease;
         }
         .message .sender {
             font-weight: 600;
@@ -210,6 +307,7 @@
             text-align: center;
             max-width: 85%;
             font-weight: 450;
+            transition: background 0.3s ease, color 0.3s ease;
         }
         .stop-msg {
             background: #f8d7da;
@@ -231,6 +329,7 @@
             font-size: 12px;
             color: #9aa9bb;
             letter-spacing: 0.2px;
+            transition: color 0.3s ease;
         }
         @keyframes fadeIn {
             from {
@@ -271,30 +370,48 @@
                 font-size: 11px;
                 padding: 4px 12px;
             }
+            #dark-toggle {
+                width: 34px;
+                height: 34px;
+                padding: 6px;
+            }
+            #dark-toggle svg {
+                width: 20px;
+                height: 20px;
+            }
         }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div id="brand">
-            <svg viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="1.8">
-                <defs>
-                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#3b82f6" />
-                        <stop offset="100%" stop-color="#7b6cf7" />
-                    </linearGradient>
-                </defs>
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 12l2 2 4-4" />
-                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-            <div style="display:flex;align-items:baseline;gap:6px;">
-                <h1>ZISHU</h1>
-                <span class="sub">voice intelligence</span>
+        <div id="header-left">
+            <div id="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="1.8">
+                    <defs>
+                        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#3b82f6" />
+                            <stop offset="100%" stop-color="#7b6cf7" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 12l2 2 4-4" />
+                    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+                <div style="display:flex;align-items:baseline;gap:6px;">
+                    <h1>ZISHU</h1>
+                    <span class="sub">voice intelligence</span>
+                </div>
             </div>
         </div>
-        <div id="status-badge">● Idle</div>
+        <div id="header-right">
+            <div id="status-badge">● Idle</div>
+            <button id="dark-toggle" aria-label="Toggle dark mode">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
     <div id="orb-container">
@@ -337,10 +454,25 @@
         let isFirstActivation = true;
         let conversationHistory = [];
         let isWebView = false;
-        let ttsRetryCount = 0;
-        const MAX_TTS_RETRIES = 3;
         let isStopped = false;
         let currentResponseText = '';
+        let isDarkMode = false;
+
+        // ============================================================
+        // DARK MODE TOGGLE
+        // ============================================================
+        document.getElementById('dark-toggle').addEventListener('click', function() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            
+            // Update toggle icon
+            const svg = this.querySelector('svg');
+            if (isDarkMode) {
+                svg.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+            } else {
+                svg.innerHTML = '<path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>';
+            }
+        });
 
         // ============================================================
         // DETECT WEBVIEW
@@ -364,7 +496,7 @@
         const statusBadge = document.getElementById('status-badge');
 
         // ============================================================
-        // STOP WORDS - Hindi + English
+        // STOP WORDS
         // ============================================================
         const STOP_WORDS = [
             'stop', 'ruko', 'bas', 'band karo', 'band kar', 'rok', 'rok do',
@@ -374,32 +506,239 @@
         ];
 
         // ============================================================
+        // EXPANDED WEBSITE LIST - 100+ SITES
+        // ============================================================
+        const SITE_ALIASES = {
+            // Social Media
+            youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
+            instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
+            facebook: ['facebook', 'fb', 'फेसबुक', 'फेसबुक'],
+            twitter: ['twitter', 'x', 'ट्विटर', 'ट्विटर'],
+            whatsapp: ['whatsapp', 'whats app', 'व्हाट्सएप', 'व्हाट्सऐप'],
+            telegram: ['telegram', 'टेलीग्राम', 'टेलीग्राम'],
+            snapchat: ['snapchat', 'स्नैपचैट', 'स्नैपचैट'],
+            pinterest: ['pinterest', 'पिनट्रेस्ट', 'पिनट्रेस्ट'],
+            tumblr: ['tumblr', 'टम्बलर', 'टम्बलर'],
+            linkedin: ['linkedin', 'linkdin', 'लिंक्डइन', 'लिंक्डइन'],
+            reddit: ['reddit', 'रेडिट', 'रेडिट'],
+            discord: ['discord', 'डिस्कॉर्ड', 'डिस्कॉर्ड'],
+            
+            // Google Services
+            google: ['google', 'गूगल', 'गूगल'],
+            gmail: ['gmail', 'जीमेल', 'जी मेल'],
+            maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स', 'map'],
+            drive: ['google drive', 'drive', 'गूगल ड्राइव', 'ड्राइव'],
+            docs: ['google docs', 'docs', 'गूगल डॉक्स', 'डॉक्स'],
+            sheets: ['google sheets', 'sheets', 'गूगल शीट्स', 'शीट्स'],
+            slides: ['google slides', 'slides', 'गूगल स्लाइड्स', 'स्लाइड्स'],
+            translate: ['google translate', 'translate', 'गूगल ट्रांसलेट', 'ट्रांसलेट'],
+            calendar: ['google calendar', 'calendar', 'गूगल कैलेंडर', 'कैलेंडर'],
+            photos: ['google photos', 'photos', 'गूगल फोटो', 'फोटो'],
+            
+            // Entertainment
+            netflix: ['netflix', 'नेटफ्लिक्स', 'नेटफ्लिक्स'],
+            spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाई', 'स्पॉटिफाय'],
+            primevideo: ['prime video', 'amazon prime', 'prime', 'प्राइम वीडियो', 'प्राइम'],
+            hotstar: ['hotstar', 'हॉटस्टार', 'हॉटस्टार'],
+            sonyliv: ['sony liv', 'sonyliv', 'सोनी लिव', 'सोनी'],
+            voot: ['voot', 'वूट', 'वूट'],
+            zee5: ['zee5', 'z5', 'ज़ी5', 'ज़ी'],
+            mxplayer: ['mx player', 'mx', 'एमएक्स प्लेयर', 'एमएक्स'],
+            jiosaavn: ['jiosaavn', 'saavn', 'जियोसावन', 'सावन'],
+            wynk: ['wynk', 'विन्क', 'विन्क'],
+            gaana: ['gaana', 'गाना', 'गाना'],
+            
+            // Shopping
+            amazon: ['amazon', 'अमेज़न', 'अमेजन', 'अमेज़न'],
+            flipkart: ['flipkart', 'फ्लिपकार्ट', 'फ्लिपकार्ट'],
+            myntra: ['myntra', 'मिंत्रा', 'मिंत्रा'],
+            ajio: ['ajio', 'अजियो', 'अजियो'],
+            nykaa: ['nykaa', 'नायका', 'नायका'],
+            meesho: ['meesho', 'मीशो', 'मीशो'],
+            snapdeal: ['snapdeal', 'स्नैपडील', 'स्नैपडील'],
+            paytm: ['paytm', 'पेटीएम', 'पेटीएम'],
+            phonepe: ['phonepe', 'फोनपे', 'फोनपे'],
+            gpay: ['google pay', 'gpay', 'गूगल पे', 'गूगलपे'],
+            
+            // Food
+            zomato: ['zomato', 'जोमैटो', 'जोमैटो'],
+            swiggy: ['swiggy', 'स्विगी', 'स्विगी'],
+            dominos: ['dominos', 'डोमिनोस', 'डोमिनोज़'],
+            pizza: ['pizza hut', 'पिज़्ज़ा', 'पिज्जा हट'],
+            
+            // News
+            timesofindia: ['times of india', 'toi', 'टाइम्स ऑफ इंडिया', 'टाइम्स'],
+            hindustantimes: ['hindustan times', 'हिंदुस्तान टाइम्स', 'हिंदुस्तान'],
+            ndtv: ['ndtv', 'एनडीटीवी', 'एनडीटीवी'],
+            bbc: ['bbc', 'बीबीसी', 'बीबीसी'],
+            cnn: ['cnn', 'सीएनएन', 'सीएनएन'],
+            
+            // Tech
+            github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
+            stackoverflow: ['stack overflow', 'stackoverflow', 'स्टैक ओवरफ्लो', 'स्टैक'],
+            codepen: ['codepen', 'कोडपेन', 'कोडपेन'],
+            devto: ['dev.to', 'devto', 'डेव', 'डेव टू'],
+            producthunt: ['product hunt', 'producthunt', 'प्रोडक्ट हंट', 'हंट'],
+            
+            // Educational
+            wikipedia: ['wikipedia', 'विकिपीडिया', 'विकिपीडिया'],
+            khanacademy: ['khan academy', 'khanacademy', 'खान अकादमी', 'खान'],
+            coursera: ['coursera', 'कोर्सेरा', 'कोर्सेरा'],
+            udemy: ['udemy', 'यूडेमी', 'यूडेमी'],
+            byjus: ['byjus', 'बायजू', 'बायजू'],
+            unacademy: ['unacademy', 'यूनाकेडमी', 'यूनाकेडमी'],
+            
+            // Games
+            chess: ['chess', 'शतरंज', 'शतरंज'],
+            ludo: ['ludo', 'लूडो', 'लूडो'],
+            carrom: ['carrom', 'कैरम', 'कैरम'],
+            pubg: ['pubg', 'पबजी', 'पबजी'],
+            freefire: ['free fire', 'freefire', 'फ्री फायर', 'फ्रीफायर'],
+            minecraft: ['minecraft', 'माइनक्राफ्ट', 'माइनक्राफ्ट'],
+            clashofclans: ['clash of clans', 'coc', 'क्लैश ऑफ क्लैंस', 'क्लैश'],
+            
+            // Other Popular
+            chatgpt: ['chatgpt', 'chat gpt', 'चैटजीपीटी', 'चैट जीपीटी'],
+            bard: ['bard', 'google bard', 'बार्ड', 'गूगल बार्ड'],
+            perplexity: ['perplexity', 'परप्लेक्सिटी', 'परप्लेक्सिटी'],
+            duckduckgo: ['duckduckgo', 'duck duck go', 'डकडकगो', 'डक डक गो'],
+            medium: ['medium', 'मीडियम', 'मीडियम'],
+            quora: ['quora', 'कोरा', 'कोरा'],
+            canva: ['canva', 'कैनवा', 'कैनवा'],
+            figma: ['figma', 'फिग्मा', 'फिग्मा'],
+            notion: ['notion', 'नोशन', 'नोशन'],
+            slack: ['slack', 'स्लैक', 'स्लैक'],
+            zoom: ['zoom', 'ज़ूम', 'ज़ूम'],
+            meet: ['google meet', 'meet', 'गूगल मीट', 'मीट']
+        };
+
+        const WEBSITE_MAP = {
+            // Social Media
+            youtube: 'https://youtube.com',
+            instagram: 'https://instagram.com',
+            facebook: 'https://facebook.com',
+            twitter: 'https://twitter.com',
+            whatsapp: 'https://web.whatsapp.com',
+            telegram: 'https://web.telegram.org',
+            snapchat: 'https://snapchat.com',
+            pinterest: 'https://pinterest.com',
+            tumblr: 'https://tumblr.com',
+            linkedin: 'https://linkedin.com',
+            reddit: 'https://reddit.com',
+            discord: 'https://discord.com',
+            
+            // Google Services
+            google: 'https://google.com',
+            gmail: 'https://gmail.com',
+            maps: 'https://maps.google.com',
+            drive: 'https://drive.google.com',
+            docs: 'https://docs.google.com',
+            sheets: 'https://sheets.google.com',
+            slides: 'https://slides.google.com',
+            translate: 'https://translate.google.com',
+            calendar: 'https://calendar.google.com',
+            photos: 'https://photos.google.com',
+            
+            // Entertainment
+            netflix: 'https://netflix.com',
+            spotify: 'https://spotify.com',
+            primevideo: 'https://primevideo.com',
+            hotstar: 'https://hotstar.com',
+            sonyliv: 'https://sonyliv.com',
+            voot: 'https://voot.com',
+            zee5: 'https://zee5.com',
+            mxplayer: 'https://mxplayer.com',
+            jiosaavn: 'https://jiosaavn.com',
+            wynk: 'https://wynk.in',
+            gaana: 'https://gaana.com',
+            
+            // Shopping
+            amazon: 'https://amazon.in',
+            flipkart: 'https://flipkart.com',
+            myntra: 'https://myntra.com',
+            ajio: 'https://ajio.com',
+            nykaa: 'https://nykaa.com',
+            meesho: 'https://meesho.com',
+            snapdeal: 'https://snapdeal.com',
+            paytm: 'https://paytm.com',
+            phonepe: 'https://phonepe.com',
+            gpay: 'https://pay.google.com',
+            
+            // Food
+            zomato: 'https://zomato.com',
+            swiggy: 'https://swiggy.com',
+            dominos: 'https://dominos.in',
+            pizza: 'https://pizzahut.in',
+            
+            // News
+            timesofindia: 'https://timesofindia.com',
+            hindustantimes: 'https://hindustantimes.com',
+            ndtv: 'https://ndtv.com',
+            bbc: 'https://bbc.com',
+            cnn: 'https://cnn.com',
+            
+            // Tech
+            github: 'https://github.com',
+            stackoverflow: 'https://stackoverflow.com',
+            codepen: 'https://codepen.io',
+            devto: 'https://dev.to',
+            producthunt: 'https://producthunt.com',
+            
+            // Educational
+            wikipedia: 'https://wikipedia.org',
+            khanacademy: 'https://khanacademy.org',
+            coursera: 'https://coursera.org',
+            udemy: 'https://udemy.com',
+            byjus: 'https://byjus.com',
+            unacademy: 'https://unacademy.com',
+            
+            // Games
+            chess: 'https://chess.com',
+            ludo: 'https://ludo.king.com',
+            carrom: 'https://carrom.com',
+            pubg: 'https://pubg.com',
+            freefire: 'https://freefire.com',
+            minecraft: 'https://minecraft.net',
+            clashofclans: 'https://clashofclans.com',
+            
+            // Other
+            chatgpt: 'https://chatgpt.com',
+            bard: 'https://bard.google.com',
+            perplexity: 'https://perplexity.ai',
+            duckduckgo: 'https://duckduckgo.com',
+            medium: 'https://medium.com',
+            quora: 'https://quora.com',
+            canva: 'https://canva.com',
+            figma: 'https://figma.com',
+            notion: 'https://notion.so',
+            slack: 'https://slack.com',
+            zoom: 'https://zoom.us',
+            meet: 'https://meet.google.com'
+        };
+
+        // ============================================================
         // LOCAL KNOWLEDGE BASE
         // ============================================================
         function getLocalAnswer(query) {
             const q = query.toLowerCase().trim();
             
-            // Creator info
             if (q.includes('tumhe kisne banaya') || q.includes('tum kisne banaya') || 
                 q.includes('tumhari creator') || q.includes('tumhara maker') ||
-                q.includes('who created you') || q.includes('who made you') ||
-                q.includes('किसने बनाया') || q.includes('बनाने वाला')) {
+                q.includes('who created you') || q.includes('who made you')) {
                 return "मुझे Zishan ने बनाया है। Zishan ek talented developer hain aur unka vision hai ki AI ko sabke liye accessible banana.";
             }
             
-            // Zishan info
-            if (q.includes('zishan') && (q.includes('kaun') || q.includes('who') || 
-                q.includes('के बारे') || q.includes('about') || q.includes('कौन'))) {
+            if ((q.includes('zishan') && (q.includes('kaun') || q.includes('who') || 
+                q.includes('के बारे') || q.includes('about') || q.includes('कौन'))) ||
+                q.includes('zishan kaun hai')) {
                 return "Zishan StardustOfficial ke founder hain. Wo ek passionate developer hain jo AI aur technology mein deep interest rakhte hain. Unka maqsad hai ki AI ko simple aur useful banana.";
             }
             
-            // StardustOfficial info
             if (q.includes('stardustofficial') || q.includes('stardust official') || 
-                q.includes('स्टारडस्ट') || q.includes('stardust') && q.includes('about')) {
+                q.includes('स्टारडस्ट') || (q.includes('stardust') && q.includes('about'))) {
                 return "StardustOfficial ek innovative tech company hai jo AI solutions, web development, aur digital products mein specialize karti hai. Company ka mission hai ki technology ko accessible aur impactful banana. Zishan is company ke founder aur CEO hain.";
             }
             
-            // Current date/time query
             if (q.includes('date') || q.includes('today') || q.includes('aaj') || 
                 q.includes('तारीख') || q.includes('date kya hai') || q.includes('aaj ka')) {
                 const now = new Date();
@@ -410,82 +749,29 @@
             if (q.includes('time') || q.includes('samay') || q.includes('समय') || 
                 q.includes('kya time') || q.includes('time kya hai')) {
                 const now = new Date();
-                return `Abhi ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} baj rahe hain.`;
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `Abhi ${hours}:${minutes} baj rahe hain.`;
             }
             
-            // Live updates query
-            if (q.includes('latest') || q.includes('today news') || q.includes('kya chal raha') ||
-                q.includes('नया') || q.includes('ताजा')) {
-                return "Mujhe real-time news ka access nahi hai, lekin main latest topics pe baat kar sakta hoon. Aap specific query puchh sakte hain!";
-            }
-            
-            // AI self-awareness
             if (q.includes('tum kaun ho') || q.includes('who are you') || q.includes('तुम कौन हो') ||
                 q.includes('tum kya ho') || q.includes('what are you')) {
-                return "Main Zishu AI hoon - ek voice assistant jo Zishan ne banaya hai. Main StardustOfficial ka AI project hoon. Main Hindi aur English dono mein baat kar sakta hoon aur websites bhi open kar sakta hoon!";
+                return "Main Zishu AI hoon - ek voice assistant jo Zishan ne banaya hai. Main StardustOfficial ka AI project hoon. Main Hindi aur English dono mein baat kar sakta hoon aur 100+ websites bhi open kar sakta hoon!";
             }
             
             return null;
         }
 
         // ============================================================
-        // WEBSITE ALIASES
-        // ============================================================
-        const SITE_ALIASES = {
-            youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
-            google: ['google', 'गूगल'],
-            gmail: ['gmail', 'जीमेल', 'जी मेल'],
-            github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
-            instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
-            facebook: ['facebook', 'फेसबुक'],
-            whatsapp: ['whatsapp', 'व्हाट्सएप', 'व्हाट्सऐप'],
-            twitter: ['twitter', 'ट्विटर', 'x'],
-            reddit: ['reddit', 'रेडिट'],
-            spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाय'],
-            netflix: ['netflix', 'नेटफ्लिक्स'],
-            amazon: ['amazon', 'अमेज़न', 'अमेजन'],
-            flipkart: ['flipkart', 'फ्लिपकार्ट'],
-            linkedin: ['linkedin', 'लिंक्डइन'],
-            maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स'],
-            drive: ['google drive', 'drive', 'गूगल ड्राइव', 'ड्राइव'],
-            docs: ['google docs', 'docs', 'गूगल डॉक्स', 'डॉक्स'],
-            translate: ['google translate', 'translate', 'गूगल ट्रांसलेट', 'ट्रांसलेट'],
-            zomato: ['zomato', 'जोमैटो'],
-            swiggy: ['swiggy', 'स्विगी']
-        };
-
-        const WEBSITE_MAP = {
-            youtube: 'https://youtube.com',
-            google: 'https://google.com',
-            gmail: 'https://gmail.com',
-            github: 'https://github.com',
-            reddit: 'https://reddit.com',
-            twitter: 'https://twitter.com',
-            instagram: 'https://instagram.com',
-            whatsapp: 'https://web.whatsapp.com',
-            maps: 'https://maps.google.com',
-            drive: 'https://drive.google.com',
-            docs: 'https://docs.google.com',
-            translate: 'https://translate.google.com',
-            facebook: 'https://facebook.com',
-            linkedin: 'https://linkedin.com',
-            spotify: 'https://spotify.com',
-            netflix: 'https://netflix.com',
-            amazon: 'https://amazon.in',
-            flipkart: 'https://flipkart.com',
-            zomato: 'https://zomato.com',
-            swiggy: 'https://swiggy.com'
-        };
-
-        // ============================================================
-        // LOCAL COMMAND DETECTION
+        // LOCAL COMMAND DETECTION - UPDATED WITH HINDI "खोलो"
         // ============================================================
         function detectLocalCommand(query) {
             const q = query.toLowerCase().trim();
             const openWords = [
                 'open', 'open karo', 'open kar', 'kholo', 'khol', 'khol do', 'khol de',
                 'chalao', 'chala do', 'start', 'launch',
-                'खोलो', 'खोल', 'खोल दो', 'खोल दे', 'चलाओ', 'चला दो', 'शुरू करो', 'शुरू कर'
+                'खोलो', 'खोल', 'खोल दो', 'खोल दे', 'खोलना', 'चलाओ', 'चला दो', 
+                'शुरू करो', 'शुरू कर', 'op', 'opn', 'ओपन', 'ओपन करो'
             ];
 
             for (const [site, aliases] of Object.entries(SITE_ALIASES)) {
@@ -494,7 +780,8 @@
 
                 const wantsOpen = openWords.some(word => q.includes(word)) || 
                                  aliases.some(alias => q === alias) ||
-                                 q === site;
+                                 q === site ||
+                                 q === 'open ' + site;
 
                 if (wantsOpen) {
                     return {
@@ -582,7 +869,6 @@
             console.log('🛑 Stopping current response...');
             isStopped = true;
             
-            // Stop TTS
             try {
                 if (window.speechSynthesis) {
                     window.speechSynthesis.cancel();
@@ -594,11 +880,9 @@
                 console.warn('⚠️ Error stopping TTS:', e);
             }
             
-            // Reset state
             isProcessing = false;
             currentResponseText = '';
             
-            // Show stop message
             const stopDiv = document.createElement('div');
             stopDiv.className = 'stop-msg';
             stopDiv.textContent = '⏹️ Response stopped. Listening again...';
@@ -607,7 +891,6 @@
             
             setOrbState(STATE.IDLE);
             
-            // Start listening again after short delay
             setTimeout(() => {
                 isStopped = false;
                 if (state === STATE.IDLE) {
@@ -616,9 +899,6 @@
             }, 500);
         }
 
-        // ============================================================
-        // CHECK FOR STOP WORDS IN QUERY
-        // ============================================================
         function isStopCommand(query) {
             const q = query.toLowerCase().trim();
             return STOP_WORDS.some(word => q.includes(word) || q === word);
@@ -658,7 +938,6 @@
                     console.log('🎤 User said:', transcript);
                     stopListening();
                     
-                    // Check if it's a stop command
                     if (isStopCommand(transcript) && (state === STATE.SPEAKING || isProcessing)) {
                         stopCurrentResponse();
                         return;
@@ -753,18 +1032,15 @@
         }
 
         // ============================================================
-        // TTS FUNCTION
+        // FIXED TTS - No stuttering, no repeats
         // ============================================================
         function speakText(text) {
-            console.log('🔊 Attempting to speak:', text.substring(0, 50) + '...');
+            console.log('🔊 Speaking:', text.substring(0, 50) + '...');
             
-            // Check if stopped
             if (isStopped) {
                 console.log('🛑 Speech stopped by user');
                 return;
             }
-            
-            ttsRetryCount = 0;
             
             try {
                 if (!window.speechSynthesis) {
@@ -772,117 +1048,124 @@
                     return;
                 }
 
+                // Cancel any ongoing speech properly
                 try {
                     window.speechSynthesis.cancel();
                 } catch (e) {}
 
-                let voices = window.speechSynthesis.getVoices();
-                if (voices.length === 0) {
-                    console.log('⏳ Voices not loaded yet, waiting...');
-                    window.speechSynthesis.onvoiceschanged = function() {
-                        voices = window.speechSynthesis.getVoices();
-                        if (voices.length > 0) {
-                            if (!isStopped) speakText(text);
-                        }
-                    };
-                    return;
-                }
-
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'hi-IN';
-                utterance.rate = 0.9;
-                utterance.pitch = 1.1;
-                utterance.volume = 1;
-
-                let hindiVoice = null;
-                try {
-                    const femaleHindi = voices.filter(v => 
-                        v.lang.startsWith('hi') && 
-                        (v.name.toLowerCase().includes('female') || 
-                         v.name.toLowerCase().includes('swara') ||
-                         v.name.toLowerCase().includes('lekh') ||
-                         v.name.toLowerCase().includes('google') ||
-                         v.name.toLowerCase().includes('karen'))
-                    );
-                    
-                    if (femaleHindi.length > 0) {
-                        hindiVoice = femaleHindi[0];
-                        console.log('✅ Found female Hindi voice:', hindiVoice.name);
-                    } else {
-                        const anyHindi = voices.find(v => v.lang.startsWith('hi'));
-                        if (anyHindi) {
-                            hindiVoice = anyHindi;
-                            console.log('✅ Found Hindi voice:', anyHindi.name);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('⚠️ Voice selection error:', e);
-                }
-
-                if (hindiVoice) {
-                    utterance.voice = hindiVoice;
-                }
-
-                utterance.onstart = () => {
-                    console.log('🔊 TTS started');
-                    if (!isStopped) {
-                        setOrbState(STATE.SPEAKING);
-                    }
-                };
-
-                utterance.onend = () => {
-                    console.log('🔊 TTS ended successfully');
-                    currentUtterance = null;
-                    ttsRetryCount = 0;
-                    if (!isStopped && !isProcessing) {
-                        setOrbState(STATE.IDLE);
-                        scheduleRestart(1000);
-                    }
-                };
-
-                utterance.onerror = (event) => {
-                    console.error('❌ TTS error:', event.error);
-                    currentUtterance = null;
-                    
+                // Small delay to ensure cancellation
+                setTimeout(() => {
                     if (isStopped) return;
-                    
-                    if (ttsRetryCount < MAX_TTS_RETRIES) {
-                        ttsRetryCount++;
-                        console.log(`🔄 Retrying TTS (${ttsRetryCount}/${MAX_TTS_RETRIES})...`);
-                        setTimeout(() => {
-                            if (!isStopped && !isProcessing) {
+
+                    let voices = window.speechSynthesis.getVoices();
+                    if (voices.length === 0) {
+                        console.log('⏳ Waiting for voices...');
+                        window.speechSynthesis.onvoiceschanged = function() {
+                            if (!isStopped) {
                                 speakText(text);
                             }
-                        }, 500 * ttsRetryCount);
-                    } else {
+                        };
+                        return;
+                    }
+
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'hi-IN';
+                    utterance.rate = 0.95;
+                    utterance.pitch = 1.05;
+                    utterance.volume = 1;
+
+                    // Find best Hindi voice
+                    let hindiVoice = null;
+                    try {
+                        const femaleHindi = voices.filter(v => 
+                            v.lang.startsWith('hi') && 
+                            (v.name.toLowerCase().includes('female') || 
+                             v.name.toLowerCase().includes('swara') ||
+                             v.name.toLowerCase().includes('lekh') ||
+                             v.name.toLowerCase().includes('google'))
+                        );
+                        
+                        if (femaleHindi.length > 0) {
+                            hindiVoice = femaleHindi[0];
+                            console.log('✅ Using voice:', hindiVoice.name);
+                        } else {
+                            const anyHindi = voices.find(v => v.lang.startsWith('hi'));
+                            if (anyHindi) {
+                                hindiVoice = anyHindi;
+                                console.log('✅ Using Hindi voice:', anyHindi.name);
+                            }
+                        }
+                    } catch (e) {}
+
+                    if (hindiVoice) {
+                        utterance.voice = hindiVoice;
+                    }
+
+                    let isStarted = false;
+                    let isEnded = false;
+
+                    utterance.onstart = () => {
+                        console.log('🔊 TTS started');
+                        isStarted = true;
+                        if (!isStopped) {
+                            setOrbState(STATE.SPEAKING);
+                        }
+                    };
+
+                    utterance.onend = () => {
+                        console.log('🔊 TTS ended');
+                        if (!isEnded) {
+                            isEnded = true;
+                            currentUtterance = null;
+                            if (!isStopped && !isProcessing) {
+                                setOrbState(STATE.IDLE);
+                                scheduleRestart(1000);
+                            }
+                        }
+                    };
+
+                    utterance.onerror = (event) => {
+                        console.error('❌ TTS error:', event.error);
+                        if (!isEnded) {
+                            isEnded = true;
+                            currentUtterance = null;
+                            if (!isStopped && !isProcessing) {
+                                setOrbState(STATE.IDLE);
+                                scheduleRestart(1000);
+                            }
+                        }
+                    };
+
+                    currentUtterance = utterance;
+                    
+                    try {
+                        window.speechSynthesis.speak(utterance);
+                    } catch (e) {
+                        console.error('❌ Speak failed:', e);
                         if (!isStopped && !isProcessing) {
                             setOrbState(STATE.IDLE);
                             scheduleRestart(1000);
                         }
                     }
-                };
 
-                currentUtterance = utterance;
-                
-                try {
-                    window.speechSynthesis.speak(utterance);
-                } catch (e) {
-                    console.error('❌ Speak failed:', e);
-                }
+                    // Safety timeout - but longer to avoid cutting off
+                    const safetyTimeout = setTimeout(() => {
+                        if (state === STATE.SPEAKING && !isProcessing && !isStopped) {
+                            console.log('⚠️ TTS safety timeout');
+                            try {
+                                window.speechSynthesis.cancel();
+                            } catch (e) {}
+                            currentUtterance = null;
+                            if (!isStopped) {
+                                setOrbState(STATE.IDLE);
+                                scheduleRestart(1000);
+                            }
+                        }
+                    }, Math.max(text.length * 50 + 3000, 5000));
 
-                const safetyTimeout = setTimeout(() => {
-                    if (state === STATE.SPEAKING && !isProcessing && !isStopped) {
-                        console.log('⚠️ TTS safety timeout - resetting');
-                        try {
-                            window.speechSynthesis.cancel();
-                        } catch (e) {}
-                        currentUtterance = null;
-                        setOrbState(STATE.IDLE);
-                        scheduleRestart(1000);
-                    }
-                }, Math.max(text.length * 30 + 2000, 3000));
+                    utterance._safetyTimeout = safetyTimeout;
 
-                utterance._safetyTimeout = safetyTimeout;
+                }, 150); // Small delay to ensure clean start
 
             } catch (error) {
                 console.error('❌ TTS exception:', error);
@@ -897,11 +1180,8 @@
         // FORCE VOICE LOADING
         // ============================================================
         function forceLoadVoices() {
-            if (!window.speechSynthesis) {
-                console.warn('⚠️ Speech synthesis not available');
-                return;
-            }
-
+            if (!window.speechSynthesis) return;
+            
             try {
                 let attempts = 0;
                 const maxAttempts = 5;
@@ -909,18 +1189,15 @@
                 function tryLoadVoices() {
                     attempts++;
                     const voices = window.speechSynthesis.getVoices();
-                    console.log(`📢 Voice load attempt ${attempts}: ${voices.length} voices found`);
+                    console.log(`📢 Voice load attempt ${attempts}: ${voices.length} voices`);
                     
                     if (voices.length > 0) {
-                        console.log('✅ Voices loaded successfully');
+                        console.log('✅ Voices loaded:', voices.map(v => v.name + ' (' + v.lang + ')').join(', '));
                         return true;
                     }
                     
                     if (attempts < maxAttempts) {
-                        console.log(`⏳ Retrying voice load (${attempts}/${maxAttempts})...`);
                         setTimeout(tryLoadVoices, 500 * attempts);
-                    } else {
-                        console.warn('⚠️ Could not load voices after multiple attempts');
                     }
                     return false;
                 }
@@ -929,7 +1206,7 @@
                 
                 window.speechSynthesis.onvoiceschanged = function() {
                     const voices = window.speechSynthesis.getVoices();
-                    console.log(`📢 Voices changed: ${voices.length} voices found`);
+                    console.log(`📢 Voices changed: ${voices.length} voices`);
                 };
 
             } catch (e) {
@@ -941,10 +1218,8 @@
         // STREAMING RESPONSE
         // ============================================================
         async function streamResponse(text) {
-            // Store full response for stop functionality
             currentResponseText = text;
             
-            // Check if stopped during streaming
             if (isStopped) {
                 console.log('🛑 Response streaming stopped');
                 return null;
@@ -966,7 +1241,6 @@
             let accumulatedText = '';
             const chunkSize = 3;
             for (let i = 0; i < text.length; i += chunkSize) {
-                // Check if stopped during streaming
                 if (isStopped) {
                     console.log('🛑 Streaming stopped mid-way');
                     contentSpan.textContent = accumulatedText + '... [stopped]';
@@ -977,14 +1251,16 @@
                 accumulatedText += chunk;
                 contentSpan.textContent = accumulatedText;
                 chatContainer.scrollTop = chatContainer.scrollHeight;
-                await new Promise(r => setTimeout(r, 20 + Math.random() * 10));
+                await new Promise(r => setTimeout(r, 25));
             }
 
-            // Only speak if not stopped
             if (!isStopped) {
+                // Wait a bit before speaking to ensure UI is rendered
                 setTimeout(() => {
-                    speakText(text);
-                }, 300);
+                    if (!isStopped) {
+                        speakText(text);
+                    }
+                }, 200);
             }
             
             return msgDiv;
@@ -1038,7 +1314,6 @@
 
             // SEND TO BACKEND
             try {
-                // Add timestamp to query for latest answers
                 const timestampedQuery = `${query} (Current date: ${new Date().toISOString().split('T')[0]})`;
                 
                 const response = await fetch(BACKEND_URL, {
@@ -1059,7 +1334,6 @@
                 const data = await response.json();
                 conversationHistory = data.history || [];
                 
-                // Check if stopped during API call
                 if (isStopped) {
                     console.log('🛑 Stopped during API call');
                     isProcessing = false;
@@ -1086,13 +1360,11 @@
         }
 
         // ============================================================
-        // KEYBOARD SHORTCUT - Space to stop when speaking
+        // KEYBOARD SHORTCUT
         // ============================================================
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
                 e.preventDefault();
-                
-                // If currently speaking or processing, stop
                 if (state === STATE.SPEAKING || isProcessing) {
                     stopCurrentResponse();
                 } else {
@@ -1117,19 +1389,19 @@
         ws.textContent = 'Zishu';
         const wc = document.createElement('span');
         wc.className = 'content';
-        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main Hindi aur English dono samajhti hoon.';
+        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main 100+ websites open kar sakta hoon, games aur apps bhi!';
         welcomeDiv.appendChild(ws);
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.8 - All Features Updated');
-        console.log('📡 Backend URL:', BACKEND_URL);
+        console.log('🚀 Zishu AI v2.8 - All Fixed');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
-        console.log('  - Stop command: "Ruko", "Bas", "Stop"');
-        console.log('  - Creator: Zishan (StardustOfficial)');
-        console.log('  - Latest answers with timestamp');
-        console.log('  - Space to toggle/stop');
+        console.log('  - Fixed TTS (no stuttering)');
+        console.log('  - Dark Mode toggle');
+        console.log('  - 100+ websites/apps/games');
+        console.log('  - Hindi "खोलो" command');
+        console.log('  - Stop: "Ruko", "Bas", "Stop"');
     </script>
 </body>
 </html>
