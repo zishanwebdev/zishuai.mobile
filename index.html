@@ -296,6 +296,7 @@
         }
         .message .content {
             display: block;
+            white-space: pre-wrap;
         }
         .tool-msg {
             background: #e9edf4;
@@ -457,6 +458,8 @@
         let isStopped = false;
         let currentResponseText = '';
         let isDarkMode = false;
+        let isSpeakingNow = false;
+        let speechChunks = [];
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -465,7 +468,6 @@
             isDarkMode = !isDarkMode;
             document.body.classList.toggle('dark-mode', isDarkMode);
             
-            // Update toggle icon
             const svg = this.querySelector('svg');
             if (isDarkMode) {
                 svg.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
@@ -496,20 +498,87 @@
         const statusBadge = document.getElementById('status-badge');
 
         // ============================================================
-        // STOP WORDS
+        // STOP WORDS - Enhanced
         // ============================================================
         const STOP_WORDS = [
             'stop', 'ruko', 'bas', 'band karo', 'band kar', 'rok', 'rok do',
             'बंद करो', 'बंद कर', 'रुको', 'बस', 'बस करो', 'रोको',
             'enough', 'thats enough', 'bass', 'rokna', 'rok do',
-            'quit', 'cancel', 'shut up', 'chup', 'चुप'
+            'quit', 'cancel', 'shut up', 'chup', 'चुप',
+            'stahp', 'stap', 'stopp', 'staaaahp'
         ];
 
         // ============================================================
-        // EXPANDED WEBSITE LIST - 100+ SITES
+        // SPECIAL CHARACTERS TO REMOVE FROM SPEECH
+        // ============================================================
+        const SPECIAL_CHARS = {
+            '*': ' ',
+            '_': ' ',
+            '-': ' ',
+            '•': ' ',
+            '·': ' ',
+            '➡️': ' ',
+            '👉': ' ',
+            '✅': ' ',
+            '⭐': ' ',
+            '🔹': ' ',
+            '🔸': ' ',
+            '▪️': ' ',
+            '▫️': ' ',
+            '◆': ' ',
+            '◇': ' ',
+            '●': ' ',
+            '○': ' ',
+            '★': ' ',
+            '☆': ' '
+        };
+
+        // ============================================================
+        // FUNCTION TO CLEAN TEXT FOR SPEECH
+        // ============================================================
+        function cleanTextForSpeech(text) {
+            let cleaned = text;
+            
+            // Remove markdown-like symbols
+            for (const [char, replacement] of Object.entries(SPECIAL_CHARS)) {
+                cleaned = cleaned.split(char).join(replacement);
+            }
+            
+            // Remove multiple spaces
+            cleaned = cleaned.replace(/\s+/g, ' ');
+            
+            // Remove markdown bold/italic markers
+            cleaned = cleaned.replace(/\*\*/g, '');
+            cleaned = cleaned.replace(/\*/g, '');
+            cleaned = cleaned.replace(/\_\_/g, '');
+            cleaned = cleaned.replace(/\_/g, '');
+            cleaned = cleaned.replace(/\~\~/g, '');
+            cleaned = cleaned.replace(/\~/g, '');
+            
+            // Remove markdown headers
+            cleaned = cleaned.replace(/^#+\s*/gm, '');
+            
+            // Remove markdown links [text](url)
+            cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+            
+            // Remove code blocks
+            cleaned = cleaned.replace(/```[\s\S]*?```/g, '');
+            cleaned = cleaned.replace(/`[^`]*`/g, '');
+            
+            // Remove list markers
+            cleaned = cleaned.replace(/^\s*[-*+]\s+/gm, '');
+            cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, '');
+            
+            // Clean up extra spaces
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            return cleaned;
+        }
+
+        // ============================================================
+        // EXPANDED WEBSITE LIST
         // ============================================================
         const SITE_ALIASES = {
-            // Social Media
             youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
             instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
             facebook: ['facebook', 'fb', 'फेसबुक', 'फेसबुक'],
@@ -522,8 +591,6 @@
             linkedin: ['linkedin', 'linkdin', 'लिंक्डइन', 'लिंक्डइन'],
             reddit: ['reddit', 'रेडिट', 'रेडिट'],
             discord: ['discord', 'डिस्कॉर्ड', 'डिस्कॉर्ड'],
-            
-            // Google Services
             google: ['google', 'गूगल', 'गूगल'],
             gmail: ['gmail', 'जीमेल', 'जी मेल'],
             maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स', 'map'],
@@ -534,8 +601,6 @@
             translate: ['google translate', 'translate', 'गूगल ट्रांसलेट', 'ट्रांसलेट'],
             calendar: ['google calendar', 'calendar', 'गूगल कैलेंडर', 'कैलेंडर'],
             photos: ['google photos', 'photos', 'गूगल फोटो', 'फोटो'],
-            
-            // Entertainment
             netflix: ['netflix', 'नेटफ्लिक्स', 'नेटफ्लिक्स'],
             spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाई', 'स्पॉटिफाय'],
             primevideo: ['prime video', 'amazon prime', 'prime', 'प्राइम वीडियो', 'प्राइम'],
@@ -547,8 +612,6 @@
             jiosaavn: ['jiosaavn', 'saavn', 'जियोसावन', 'सावन'],
             wynk: ['wynk', 'विन्क', 'विन्क'],
             gaana: ['gaana', 'गाना', 'गाना'],
-            
-            // Shopping
             amazon: ['amazon', 'अमेज़न', 'अमेजन', 'अमेज़न'],
             flipkart: ['flipkart', 'फ्लिपकार्ट', 'फ्लिपकार्ट'],
             myntra: ['myntra', 'मिंत्रा', 'मिंत्रा'],
@@ -559,36 +622,26 @@
             paytm: ['paytm', 'पेटीएम', 'पेटीएम'],
             phonepe: ['phonepe', 'फोनपे', 'फोनपे'],
             gpay: ['google pay', 'gpay', 'गूगल पे', 'गूगलपे'],
-            
-            // Food
             zomato: ['zomato', 'जोमैटो', 'जोमैटो'],
             swiggy: ['swiggy', 'स्विगी', 'स्विगी'],
             dominos: ['dominos', 'डोमिनोस', 'डोमिनोज़'],
             pizza: ['pizza hut', 'पिज़्ज़ा', 'पिज्जा हट'],
-            
-            // News
             timesofindia: ['times of india', 'toi', 'टाइम्स ऑफ इंडिया', 'टाइम्स'],
             hindustantimes: ['hindustan times', 'हिंदुस्तान टाइम्स', 'हिंदुस्तान'],
             ndtv: ['ndtv', 'एनडीटीवी', 'एनडीटीवी'],
             bbc: ['bbc', 'बीबीसी', 'बीबीसी'],
             cnn: ['cnn', 'सीएनएन', 'सीएनएन'],
-            
-            // Tech
             github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
             stackoverflow: ['stack overflow', 'stackoverflow', 'स्टैक ओवरफ्लो', 'स्टैक'],
             codepen: ['codepen', 'कोडपेन', 'कोडपेन'],
             devto: ['dev.to', 'devto', 'डेव', 'डेव टू'],
             producthunt: ['product hunt', 'producthunt', 'प्रोडक्ट हंट', 'हंट'],
-            
-            // Educational
             wikipedia: ['wikipedia', 'विकिपीडिया', 'विकिपीडिया'],
             khanacademy: ['khan academy', 'khanacademy', 'खान अकादमी', 'खान'],
             coursera: ['coursera', 'कोर्सेरा', 'कोर्सेरा'],
             udemy: ['udemy', 'यूडेमी', 'यूडेमी'],
             byjus: ['byjus', 'बायजू', 'बायजू'],
             unacademy: ['unacademy', 'यूनाकेडमी', 'यूनाकेडमी'],
-            
-            // Games
             chess: ['chess', 'शतरंज', 'शतरंज'],
             ludo: ['ludo', 'लूडो', 'लूडो'],
             carrom: ['carrom', 'कैरम', 'कैरम'],
@@ -596,8 +649,6 @@
             freefire: ['free fire', 'freefire', 'फ्री फायर', 'फ्रीफायर'],
             minecraft: ['minecraft', 'माइनक्राफ्ट', 'माइनक्राफ्ट'],
             clashofclans: ['clash of clans', 'coc', 'क्लैश ऑफ क्लैंस', 'क्लैश'],
-            
-            // Other Popular
             chatgpt: ['chatgpt', 'chat gpt', 'चैटजीपीटी', 'चैट जीपीटी'],
             bard: ['bard', 'google bard', 'बार्ड', 'गूगल बार्ड'],
             perplexity: ['perplexity', 'परप्लेक्सिटी', 'परप्लेक्सिटी'],
@@ -613,7 +664,6 @@
         };
 
         const WEBSITE_MAP = {
-            // Social Media
             youtube: 'https://youtube.com',
             instagram: 'https://instagram.com',
             facebook: 'https://facebook.com',
@@ -626,8 +676,6 @@
             linkedin: 'https://linkedin.com',
             reddit: 'https://reddit.com',
             discord: 'https://discord.com',
-            
-            // Google Services
             google: 'https://google.com',
             gmail: 'https://gmail.com',
             maps: 'https://maps.google.com',
@@ -638,8 +686,6 @@
             translate: 'https://translate.google.com',
             calendar: 'https://calendar.google.com',
             photos: 'https://photos.google.com',
-            
-            // Entertainment
             netflix: 'https://netflix.com',
             spotify: 'https://spotify.com',
             primevideo: 'https://primevideo.com',
@@ -651,8 +697,6 @@
             jiosaavn: 'https://jiosaavn.com',
             wynk: 'https://wynk.in',
             gaana: 'https://gaana.com',
-            
-            // Shopping
             amazon: 'https://amazon.in',
             flipkart: 'https://flipkart.com',
             myntra: 'https://myntra.com',
@@ -663,36 +707,26 @@
             paytm: 'https://paytm.com',
             phonepe: 'https://phonepe.com',
             gpay: 'https://pay.google.com',
-            
-            // Food
             zomato: 'https://zomato.com',
             swiggy: 'https://swiggy.com',
             dominos: 'https://dominos.in',
             pizza: 'https://pizzahut.in',
-            
-            // News
             timesofindia: 'https://timesofindia.com',
             hindustantimes: 'https://hindustantimes.com',
             ndtv: 'https://ndtv.com',
             bbc: 'https://bbc.com',
             cnn: 'https://cnn.com',
-            
-            // Tech
             github: 'https://github.com',
             stackoverflow: 'https://stackoverflow.com',
             codepen: 'https://codepen.io',
             devto: 'https://dev.to',
             producthunt: 'https://producthunt.com',
-            
-            // Educational
             wikipedia: 'https://wikipedia.org',
             khanacademy: 'https://khanacademy.org',
             coursera: 'https://coursera.org',
             udemy: 'https://udemy.com',
             byjus: 'https://byjus.com',
             unacademy: 'https://unacademy.com',
-            
-            // Games
             chess: 'https://chess.com',
             ludo: 'https://ludo.king.com',
             carrom: 'https://carrom.com',
@@ -700,8 +734,6 @@
             freefire: 'https://freefire.com',
             minecraft: 'https://minecraft.net',
             clashofclans: 'https://clashofclans.com',
-            
-            // Other
             chatgpt: 'https://chatgpt.com',
             bard: 'https://bard.google.com',
             perplexity: 'https://perplexity.ai',
@@ -763,7 +795,7 @@
         }
 
         // ============================================================
-        // LOCAL COMMAND DETECTION - UPDATED WITH HINDI "खोलो"
+        // LOCAL COMMAND DETECTION
         // ============================================================
         function detectLocalCommand(query) {
             const q = query.toLowerCase().trim();
@@ -863,45 +895,61 @@
         }
 
         // ============================================================
-        // STOP RESPONSE FUNCTION
+        // STOP RESPONSE FUNCTION - FIXED
         // ============================================================
         function stopCurrentResponse() {
-            console.log('🛑 Stopping current response...');
+            console.log('🛑 STOPPING current response...');
             isStopped = true;
+            isSpeakingNow = false;
             
+            // Force stop TTS
             try {
                 if (window.speechSynthesis) {
                     window.speechSynthesis.cancel();
+                    console.log('✅ TTS cancelled');
                 }
                 if (currentUtterance) {
                     currentUtterance = null;
+                    console.log('✅ Utterance cleared');
                 }
             } catch (e) {
                 console.warn('⚠️ Error stopping TTS:', e);
             }
             
+            // Reset everything
             isProcessing = false;
             currentResponseText = '';
             
+            // Show stop message
             const stopDiv = document.createElement('div');
             stopDiv.className = 'stop-msg';
-            stopDiv.textContent = '⏹️ Response stopped. Listening again...';
+            stopDiv.textContent = '⏹️ बोलना रोका गया! फिर से सुन रहा हूँ...';
             chatContainer.appendChild(stopDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             setOrbState(STATE.IDLE);
             
+            // Start listening again
             setTimeout(() => {
                 isStopped = false;
                 if (state === STATE.IDLE) {
                     startListening();
                 }
-            }, 500);
+            }, 400);
         }
 
         function isStopCommand(query) {
             const q = query.toLowerCase().trim();
-            return STOP_WORDS.some(word => q.includes(word) || q === word);
+            // Check exact matches and partial matches
+            return STOP_WORDS.some(word => {
+                // Exact match
+                if (q === word) return true;
+                // Word in query
+                if (q.includes(word)) return true;
+                // Query in word (for short words like "bas")
+                if (word.includes(q) && q.length > 2) return true;
+                return false;
+            });
         }
 
         // ============================================================
@@ -936,13 +984,18 @@
                 const transcript = event.results[0][0].transcript.trim();
                 if (transcript.length > 0) {
                     console.log('🎤 User said:', transcript);
-                    stopListening();
                     
-                    if (isStopCommand(transcript) && (state === STATE.SPEAKING || isProcessing)) {
-                        stopCurrentResponse();
-                        return;
+                    // Check if it's a stop command - CRITICAL FIX
+                    if (isStopCommand(transcript)) {
+                        console.log('🛑 STOP COMMAND DETECTED:', transcript);
+                        // If speaking or processing, stop immediately
+                        if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
+                            stopCurrentResponse();
+                            return;
+                        }
                     }
                     
+                    stopListening();
                     handleUserQuery(transcript);
                 }
             };
@@ -1032,13 +1085,24 @@
         }
 
         // ============================================================
-        // FIXED TTS - No stuttering, no repeats
+        // FIXED TTS - No stuttering, clean speech
         // ============================================================
         function speakText(text) {
-            console.log('🔊 Speaking:', text.substring(0, 50) + '...');
+            // Clean text for speech - remove special characters
+            const cleanText = cleanTextForSpeech(text);
+            console.log('🔊 Speaking (cleaned):', cleanText.substring(0, 50) + '...');
             
             if (isStopped) {
                 console.log('🛑 Speech stopped by user');
+                return;
+            }
+            
+            if (!cleanText || cleanText.trim().length === 0) {
+                console.log('⚠️ Empty text after cleaning');
+                if (!isProcessing) {
+                    setOrbState(STATE.IDLE);
+                    scheduleRestart(1000);
+                }
                 return;
             }
             
@@ -1048,127 +1112,120 @@
                     return;
                 }
 
-                // Cancel any ongoing speech properly
+                // Cancel any ongoing speech
                 try {
                     window.speechSynthesis.cancel();
                 } catch (e) {}
 
-                // Small delay to ensure cancellation
-                setTimeout(() => {
-                    if (isStopped) return;
-
-                    let voices = window.speechSynthesis.getVoices();
-                    if (voices.length === 0) {
-                        console.log('⏳ Waiting for voices...');
-                        window.speechSynthesis.onvoiceschanged = function() {
-                            if (!isStopped) {
-                                speakText(text);
-                            }
-                        };
-                        return;
-                    }
-
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'hi-IN';
-                    utterance.rate = 0.95;
-                    utterance.pitch = 1.05;
-                    utterance.volume = 1;
-
-                    // Find best Hindi voice
-                    let hindiVoice = null;
-                    try {
-                        const femaleHindi = voices.filter(v => 
-                            v.lang.startsWith('hi') && 
-                            (v.name.toLowerCase().includes('female') || 
-                             v.name.toLowerCase().includes('swara') ||
-                             v.name.toLowerCase().includes('lekh') ||
-                             v.name.toLowerCase().includes('google'))
-                        );
-                        
-                        if (femaleHindi.length > 0) {
-                            hindiVoice = femaleHindi[0];
-                            console.log('✅ Using voice:', hindiVoice.name);
-                        } else {
-                            const anyHindi = voices.find(v => v.lang.startsWith('hi'));
-                            if (anyHindi) {
-                                hindiVoice = anyHindi;
-                                console.log('✅ Using Hindi voice:', anyHindi.name);
-                            }
-                        }
-                    } catch (e) {}
-
-                    if (hindiVoice) {
-                        utterance.voice = hindiVoice;
-                    }
-
-                    let isStarted = false;
-                    let isEnded = false;
-
-                    utterance.onstart = () => {
-                        console.log('🔊 TTS started');
-                        isStarted = true;
+                // Wait for voices
+                let voices = window.speechSynthesis.getVoices();
+                if (voices.length === 0) {
+                    console.log('⏳ Waiting for voices...');
+                    window.speechSynthesis.onvoiceschanged = function() {
                         if (!isStopped) {
-                            setOrbState(STATE.SPEAKING);
+                            speakText(text);
                         }
                     };
+                    return;
+                }
 
-                    utterance.onend = () => {
-                        console.log('🔊 TTS ended');
-                        if (!isEnded) {
-                            isEnded = true;
-                            currentUtterance = null;
-                            if (!isStopped && !isProcessing) {
-                                setOrbState(STATE.IDLE);
-                                scheduleRestart(1000);
-                            }
-                        }
-                    };
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'hi-IN';
+                utterance.rate = 0.95;
+                utterance.pitch = 1.05;
+                utterance.volume = 1;
 
-                    utterance.onerror = (event) => {
-                        console.error('❌ TTS error:', event.error);
-                        if (!isEnded) {
-                            isEnded = true;
-                            currentUtterance = null;
-                            if (!isStopped && !isProcessing) {
-                                setOrbState(STATE.IDLE);
-                                scheduleRestart(1000);
-                            }
-                        }
-                    };
-
-                    currentUtterance = utterance;
+                // Find best voice
+                try {
+                    const femaleHindi = voices.filter(v => 
+                        v.lang.startsWith('hi') && 
+                        (v.name.toLowerCase().includes('female') || 
+                         v.name.toLowerCase().includes('swara') ||
+                         v.name.toLowerCase().includes('lekh') ||
+                         v.name.toLowerCase().includes('google'))
+                    );
                     
-                    try {
-                        window.speechSynthesis.speak(utterance);
-                    } catch (e) {
-                        console.error('❌ Speak failed:', e);
+                    if (femaleHindi.length > 0) {
+                        utterance.voice = femaleHindi[0];
+                        console.log('✅ Using voice:', femaleHindi[0].name);
+                    } else {
+                        const anyHindi = voices.find(v => v.lang.startsWith('hi'));
+                        if (anyHindi) {
+                            utterance.voice = anyHindi;
+                            console.log('✅ Using voice:', anyHindi.name);
+                        }
+                    }
+                } catch (e) {}
+
+                let isEnded = false;
+
+                utterance.onstart = () => {
+                    console.log('🔊 TTS started');
+                    isSpeakingNow = true;
+                    if (!isStopped) {
+                        setOrbState(STATE.SPEAKING);
+                    }
+                };
+
+                utterance.onend = () => {
+                    console.log('🔊 TTS ended');
+                    if (!isEnded) {
+                        isEnded = true;
+                        isSpeakingNow = false;
+                        currentUtterance = null;
                         if (!isStopped && !isProcessing) {
                             setOrbState(STATE.IDLE);
                             scheduleRestart(1000);
                         }
                     }
+                };
 
-                    // Safety timeout - but longer to avoid cutting off
-                    const safetyTimeout = setTimeout(() => {
-                        if (state === STATE.SPEAKING && !isProcessing && !isStopped) {
-                            console.log('⚠️ TTS safety timeout');
-                            try {
-                                window.speechSynthesis.cancel();
-                            } catch (e) {}
-                            currentUtterance = null;
-                            if (!isStopped) {
-                                setOrbState(STATE.IDLE);
-                                scheduleRestart(1000);
-                            }
+                utterance.onerror = (event) => {
+                    console.error('❌ TTS error:', event.error);
+                    if (!isEnded) {
+                        isEnded = true;
+                        isSpeakingNow = false;
+                        currentUtterance = null;
+                        if (!isStopped && !isProcessing) {
+                            setOrbState(STATE.IDLE);
+                            scheduleRestart(1000);
                         }
-                    }, Math.max(text.length * 50 + 3000, 5000));
+                    }
+                };
 
-                    utterance._safetyTimeout = safetyTimeout;
+                currentUtterance = utterance;
+                
+                try {
+                    window.speechSynthesis.speak(utterance);
+                } catch (e) {
+                    console.error('❌ Speak failed:', e);
+                    if (!isStopped && !isProcessing) {
+                        setOrbState(STATE.IDLE);
+                        scheduleRestart(1000);
+                    }
+                }
 
-                }, 150); // Small delay to ensure clean start
+                // Safety timeout
+                const safetyTimeout = setTimeout(() => {
+                    if ((state === STATE.SPEAKING || isSpeakingNow) && !isProcessing && !isStopped) {
+                        console.log('⚠️ TTS safety timeout');
+                        try {
+                            window.speechSynthesis.cancel();
+                        } catch (e) {}
+                        isSpeakingNow = false;
+                        currentUtterance = null;
+                        if (!isStopped) {
+                            setOrbState(STATE.IDLE);
+                            scheduleRestart(1000);
+                        }
+                    }
+                }, Math.max(cleanText.length * 40 + 3000, 5000));
+
+                utterance._safetyTimeout = safetyTimeout;
 
             } catch (error) {
                 console.error('❌ TTS exception:', error);
+                isSpeakingNow = false;
                 if (!isStopped && !isProcessing) {
                     setOrbState(STATE.IDLE);
                     scheduleRestart(1000);
@@ -1215,7 +1272,7 @@
         }
 
         // ============================================================
-        // STREAMING RESPONSE
+        // STREAMING RESPONSE - Clean text before display
         // ============================================================
         async function streamResponse(text) {
             currentResponseText = text;
@@ -1238,6 +1295,7 @@
             msgDiv.appendChild(contentSpan);
             chatContainer.appendChild(msgDiv);
 
+            // Display text with special characters preserved for readability
             let accumulatedText = '';
             const chunkSize = 3;
             for (let i = 0; i < text.length; i += chunkSize) {
@@ -1254,8 +1312,8 @@
                 await new Promise(r => setTimeout(r, 25));
             }
 
+            // Speak the cleaned version
             if (!isStopped) {
-                // Wait a bit before speaking to ensure UI is rendered
                 setTimeout(() => {
                     if (!isStopped) {
                         speakText(text);
@@ -1273,6 +1331,7 @@
             if (isProcessing) return;
             isProcessing = true;
             isStopped = false;
+            isSpeakingNow = false;
             clearRestartTimer();
             setOrbState(STATE.THINKING);
 
@@ -1350,7 +1409,7 @@
                 isProcessing = false;
                 if (!isStopped && state !== STATE.LISTENING) {
                     setTimeout(() => {
-                        if (state !== STATE.SPEAKING && !isStopped) {
+                        if (state !== STATE.SPEAKING && !isStopped && !isSpeakingNow) {
                             setOrbState(STATE.IDLE);
                             scheduleRestart(1000);
                         }
@@ -1360,12 +1419,12 @@
         }
 
         // ============================================================
-        // KEYBOARD SHORTCUT
+        // KEYBOARD SHORTCUT - Space to stop
         // ============================================================
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
                 e.preventDefault();
-                if (state === STATE.SPEAKING || isProcessing) {
+                if (isSpeakingNow || state === STATE.SPEAKING || isProcessing) {
                     stopCurrentResponse();
                 } else {
                     toggleListening();
@@ -1398,10 +1457,10 @@
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
         console.log('  - Fixed TTS (no stuttering)');
+        console.log('  - Fixed STOP command');
+        console.log('  - Special chars removed from speech');
         console.log('  - Dark Mode toggle');
         console.log('  - 100+ websites/apps/games');
-        console.log('  - Hindi "खोलो" command');
-        console.log('  - Stop: "Ruko", "Bas", "Stop"');
     </script>
 </body>
 </html>
