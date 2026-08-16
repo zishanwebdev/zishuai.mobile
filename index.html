@@ -160,45 +160,328 @@
             transform: scale(1.05);
         }
 
+        /* ============================================================
+           PREMIUM 3D ORB - Standalone Character
+           ============================================================ */
         #orb-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 16px 0 20px;
+            padding: 10px 0 16px;
             flex-shrink: 0;
-        }
-        #orb {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #3b82f6, #1a2332);
-            box-shadow: 0 0 60px rgba(59, 130, 246, 0.15);
-            transition: all 0.4s ease;
-            cursor: pointer;
             position: relative;
+            perspective: 800px;
         }
-        #orb:hover {
-            transform: scale(1.04);
+
+        /* The main orb wrapper with 3D perspective */
+        #orb-wrapper {
+            width: 130px;
+            height: 130px;
+            position: relative;
+            transform-style: preserve-3d;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: floatOrb 4s ease-in-out infinite;
         }
-        #orb.listening {
-            background: radial-gradient(circle at 30% 30%, #4f8ef7, #1a2332);
-            box-shadow: 0 0 80px rgba(79, 142, 247, 0.25);
+        #orb-wrapper:hover {
+            transform: scale(1.05) rotateX(2deg);
+        }
+        #orb-wrapper:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translateY(0px) rotateX(0deg); }
+            50% { transform: translateY(-8px) rotateX(2deg); }
+        }
+
+        /* Glow behind orb */
+        #orb-glow {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            top: -25px;
+            left: -25px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+            filter: blur(20px);
+            animation: glowPulse 3s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* White ceramic body */
+        #orb {
+            position: relative;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 30% 25%, #ffffff, #e8ecf0 50%, #c8ced6 80%, #b0b8c4);
+            box-shadow: 
+                inset -20px -20px 40px rgba(0,0,0,0.12),
+                inset 15px 15px 30px rgba(255,255,255,0.8),
+                0 20px 60px rgba(59, 130, 246, 0.15),
+                0 0 40px rgba(59, 130, 246, 0.05);
+            transform: rotateX(-5deg) rotateY(-5deg);
+            transition: all 0.6s ease;
+            z-index: 1;
+            cursor: pointer;
+            /* Ceramic texture effect */
+            background-image: 
+                radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.9) 0%, transparent 60%),
+                radial-gradient(ellipse at 65% 70%, rgba(200,210,220,0.3) 0%, transparent 40%),
+                radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.2) 0%, transparent 30%);
+        }
+
+        /* Inner glow ring */
+        #orb-ring {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            top: -5px;
+            left: -5px;
+            border-radius: 50%;
+            border: 2px solid rgba(59, 130, 246, 0.08);
+            box-shadow: inset 0 0 30px rgba(59, 130, 246, 0.03);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Glossy black visor/face */
+        #orb-visor {
+            position: absolute;
+            width: 80px;
+            height: 56px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(5deg);
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 45% 40%, #2a2a3a, #0a0a12 60%, #000000);
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.5),
+                inset 5px 5px 15px rgba(255,255,255,0.05),
+                0 0 30px rgba(59, 130, 246, 0.08);
+            z-index: 2;
+            border: 1px solid rgba(255,255,255,0.03);
+            overflow: hidden;
+        }
+        /* Visor shine */
+        #orb-visor::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            width: 20px;
+            height: 12px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+            transform: rotate(-20deg);
+        }
+
+        /* Eyes - glowing cyan-white */
+        #orb-eyes {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 20px;
+            z-index: 3;
+        }
+        .eye {
+            width: 12px;
+            height: 16px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 50% 40%, #8cf0ff, #3b82f6 50%, #1a4a8a);
+            box-shadow: 
+                0 0 20px rgba(59, 130, 246, 0.4),
+                0 0 40px rgba(59, 130, 246, 0.15),
+                inset 0 2px 4px rgba(255,255,255,0.3);
+            animation: eyeGlow 3s ease-in-out infinite;
+            transition: all 0.3s ease;
+        }
+        .eye.left {
+            animation-delay: 0.2s;
+        }
+        .eye.right {
+            animation-delay: 0.8s;
+        }
+
+        @keyframes eyeGlow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.15);
+                opacity: 1;
+            }
+            50% { 
+                box-shadow: 0 0 30px rgba(59, 130, 246, 0.6), 0 0 60px rgba(59, 130, 246, 0.25);
+                opacity: 0.95;
+            }
+        }
+
+        /* Eye pupil glow */
+        .eye::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.6);
+            filter: blur(1px);
+        }
+
+        /* ============================================================
+           ENERGY RIBBON - Flowing plasma wave
+           ============================================================ */
+        #orb-ribbon {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            top: -25px;
+            left: -25px;
+            z-index: 4;
+            pointer-events: none;
+            transform: rotateX(-10deg) rotateY(5deg);
+            filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.15));
+        }
+
+        .ribbon-wave {
+            position: absolute;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            border-top-color: #3b82f6;
+            border-right-color: #7b6cf7;
+            border-bottom-color: #4fc3f7;
+            border-left-color: #00bcd4;
+            opacity: 0.6;
+            animation: ribbonSpin 8s linear infinite;
+            filter: blur(1px);
+        }
+        .ribbon-wave:nth-child(1) {
+            width: 170px;
+            height: 170px;
+            top: 5px;
+            left: 5px;
+            border-width: 3px;
+            animation-duration: 12s;
+            border-top-color: #3b82f6;
+            border-right-color: #64b5f6;
+            border-bottom-color: #4fc3f7;
+            border-left-color: #00bcd4;
+            opacity: 0.5;
+        }
+        .ribbon-wave:nth-child(2) {
+            width: 155px;
+            height: 155px;
+            top: 12px;
+            left: 12px;
+            border-width: 2.5px;
+            animation-duration: 9s;
+            animation-direction: reverse;
+            border-top-color: #7b6cf7;
+            border-right-color: #3b82f6;
+            border-bottom-color: #00bcd4;
+            border-left-color: #4fc3f7;
+            opacity: 0.4;
+        }
+        .ribbon-wave:nth-child(3) {
+            width: 140px;
+            height: 140px;
+            top: 20px;
+            left: 20px;
+            border-width: 2px;
+            animation-duration: 15s;
+            border-top-color: #4fc3f7;
+            border-right-color: #3b82f6;
+            border-bottom-color: #7b6cf7;
+            border-left-color: #64b5f6;
+            opacity: 0.35;
+        }
+        .ribbon-wave:nth-child(4) {
+            width: 125px;
+            height: 125px;
+            top: 27px;
+            left: 27px;
+            border-width: 2px;
+            animation-duration: 7s;
+            animation-direction: reverse;
+            border-top-color: #00bcd4;
+            border-right-color: #4fc3f7;
+            border-bottom-color: #3b82f6;
+            border-left-color: #7b6cf7;
+            opacity: 0.3;
+        }
+
+        @keyframes ribbonSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.02); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        /* Orb states */
+        #orb-wrapper.listening #orb {
+            box-shadow: 
+                inset -20px -20px 40px rgba(0,0,0,0.12),
+                inset 15px 15px 30px rgba(255,255,255,0.8),
+                0 20px 60px rgba(59, 130, 246, 0.3),
+                0 0 80px rgba(59, 130, 246, 0.1);
             animation: orbPulse 1.2s ease-in-out infinite;
         }
-        #orb.thinking {
-            background: radial-gradient(circle at 30% 30%, #7b6cf7, #1a2332);
-            box-shadow: 0 0 80px rgba(123, 108, 247, 0.25);
+        #orb-wrapper.listening #orb-visor {
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.5),
+                inset 5px 5px 15px rgba(255,255,255,0.05),
+                0 0 50px rgba(59, 130, 246, 0.15);
+        }
+        #orb-wrapper.listening .eye {
+            animation: eyeListening 0.8s ease-in-out infinite;
+        }
+
+        #orb-wrapper.thinking #orb {
+            box-shadow: 
+                inset -20px -20px 40px rgba(0,0,0,0.12),
+                inset 15px 15px 30px rgba(255,255,255,0.8),
+                0 20px 60px rgba(123, 108, 247, 0.3),
+                0 0 80px rgba(123, 108, 247, 0.1);
             animation: orbSpin 2s linear infinite;
         }
-        #orb.speaking {
-            background: radial-gradient(circle at 30% 30%, #3b82f6, #1a2332);
-            box-shadow: 0 0 80px rgba(59, 130, 246, 0.2);
+        #orb-wrapper.thinking #orb-visor {
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.5),
+                inset 5px 5px 15px rgba(255,255,255,0.05),
+                0 0 50px rgba(123, 108, 247, 0.15);
+        }
+        #orb-wrapper.thinking .eye {
+            animation: eyeThinking 1.2s ease-in-out infinite;
+        }
+
+        #orb-wrapper.speaking #orb {
+            box-shadow: 
+                inset -20px -20px 40px rgba(0,0,0,0.12),
+                inset 15px 15px 30px rgba(255,255,255,0.8),
+                0 20px 60px rgba(59, 130, 246, 0.35),
+                0 0 100px rgba(59, 130, 246, 0.15);
             animation: orbSpeak 0.6s ease-in-out infinite alternate;
         }
+        #orb-wrapper.speaking #orb-visor {
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.5),
+                inset 5px 5px 15px rgba(255,255,255,0.05),
+                0 0 60px rgba(59, 130, 246, 0.2);
+        }
+        #orb-wrapper.speaking .eye {
+            animation: eyeSpeaking 0.4s ease-in-out infinite alternate;
+        }
+
         @keyframes orbPulse {
             0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.03); }
         }
         @keyframes orbSpin {
             0% { transform: rotate(0deg); }
@@ -206,8 +489,21 @@
         }
         @keyframes orbSpeak {
             0% { transform: scale(1) translateY(0); }
-            100% { transform: scale(1.04) translateY(-3px); }
+            100% { transform: scale(1.02) translateY(-3px); }
         }
+        @keyframes eyeListening {
+            0%, 100% { height: 16px; width: 12px; }
+            50% { height: 18px; width: 14px; }
+        }
+        @keyframes eyeThinking {
+            0%, 100% { border-radius: 50%; }
+            50% { border-radius: 30%; }
+        }
+        @keyframes eyeSpeaking {
+            0% { height: 16px; width: 12px; }
+            100% { height: 20px; width: 10px; }
+        }
+
         #orb-status {
             margin-top: 14px;
             font-size: 16px;
@@ -215,6 +511,8 @@
             color: #1a2332;
             letter-spacing: -0.2px;
             transition: color 0.3s ease;
+            z-index: 5;
+            position: relative;
         }
         #orb-sub {
             font-size: 13px;
@@ -222,7 +520,10 @@
             margin-top: 4px;
             font-weight: 400;
             transition: color 0.3s ease;
+            z-index: 5;
+            position: relative;
         }
+
         #chat-wrapper {
             flex: 1;
             min-height: 0;
@@ -346,9 +647,52 @@
             body {
                 padding: 12px 14px 10px;
             }
+            #orb-wrapper {
+                width: 100px;
+                height: 100px;
+            }
             #orb {
-                width: 80px;
-                height: 80px;
+                width: 100px;
+                height: 100px;
+            }
+            #orb-visor {
+                width: 62px;
+                height: 44px;
+            }
+            #orb-eyes {
+                gap: 16px;
+            }
+            .eye {
+                width: 10px;
+                height: 13px;
+            }
+            #orb-ribbon {
+                width: 140px;
+                height: 140px;
+                top: -20px;
+                left: -20px;
+            }
+            .ribbon-wave:nth-child(1) {
+                width: 135px;
+                height: 135px;
+            }
+            .ribbon-wave:nth-child(2) {
+                width: 120px;
+                height: 120px;
+            }
+            .ribbon-wave:nth-child(3) {
+                width: 108px;
+                height: 108px;
+            }
+            .ribbon-wave:nth-child(4) {
+                width: 96px;
+                height: 96px;
+            }
+            #orb-glow {
+                width: 140px;
+                height: 140px;
+                top: -20px;
+                left: -20px;
             }
             #brand h1 {
                 font-size: 18px;
@@ -416,7 +760,24 @@
     </div>
 
     <div id="orb-container">
-        <div id="orb"></div>
+        <div id="orb-wrapper">
+            <div id="orb-glow"></div>
+            <div id="orb-ribbon">
+                <div class="ribbon-wave"></div>
+                <div class="ribbon-wave"></div>
+                <div class="ribbon-wave"></div>
+                <div class="ribbon-wave"></div>
+            </div>
+            <div id="orb">
+                <div id="orb-ring"></div>
+                <div id="orb-visor">
+                    <div id="orb-eyes">
+                        <div class="eye left"></div>
+                        <div class="eye right"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="orb-status">Tap orb to start</div>
         <div id="orb-sub">First tap to enable microphone</div>
     </div>
@@ -459,7 +820,6 @@
         let currentResponseText = '';
         let isDarkMode = false;
         let isSpeakingNow = false;
-        let speechChunks = [];
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -491,94 +851,59 @@
         // ============================================================
         // DOM REFS
         // ============================================================
-        const orb = document.getElementById('orb');
+        const orbWrapper = document.getElementById('orb-wrapper');
         const orbStatus = document.getElementById('orb-status');
         const orbSub = document.getElementById('orb-sub');
         const chatContainer = document.getElementById('chat-container');
         const statusBadge = document.getElementById('status-badge');
 
         // ============================================================
-        // STOP WORDS - Enhanced
+        // STOP WORDS
         // ============================================================
         const STOP_WORDS = [
             'stop', 'ruko', 'bas', 'band karo', 'band kar', 'rok', 'rok do',
             'बंद करो', 'बंद कर', 'रुको', 'बस', 'बस करो', 'रोको',
             'enough', 'thats enough', 'bass', 'rokna', 'rok do',
-            'quit', 'cancel', 'shut up', 'chup', 'चुप',
-            'stahp', 'stap', 'stopp', 'staaaahp'
+            'quit', 'cancel', 'shut up', 'chup', 'चुप'
         ];
 
         // ============================================================
         // SPECIAL CHARACTERS TO REMOVE FROM SPEECH
         // ============================================================
         const SPECIAL_CHARS = {
-            '*': ' ',
-            '_': ' ',
-            '-': ' ',
-            '•': ' ',
-            '·': ' ',
-            '➡️': ' ',
-            '👉': ' ',
-            '✅': ' ',
-            '⭐': ' ',
-            '🔹': ' ',
-            '🔸': ' ',
-            '▪️': ' ',
-            '▫️': ' ',
-            '◆': ' ',
-            '◇': ' ',
-            '●': ' ',
-            '○': ' ',
-            '★': ' ',
-            '☆': ' '
+            '*': ' ', '_': ' ', '-': ' ', '•': ' ', '·': ' ',
+            '➡️': ' ', '👉': ' ', '✅': ' ', '⭐': ' ', '🔹': ' ',
+            '🔸': ' ', '▪️': ' ', '▫️': ' ', '◆': ' ', '◇': ' ',
+            '●': ' ', '○': ' ', '★': ' ', '☆': ' '
         };
 
-        // ============================================================
-        // FUNCTION TO CLEAN TEXT FOR SPEECH
-        // ============================================================
         function cleanTextForSpeech(text) {
             let cleaned = text;
-            
-            // Remove markdown-like symbols
             for (const [char, replacement] of Object.entries(SPECIAL_CHARS)) {
                 cleaned = cleaned.split(char).join(replacement);
             }
-            
-            // Remove multiple spaces
             cleaned = cleaned.replace(/\s+/g, ' ');
-            
-            // Remove markdown bold/italic markers
             cleaned = cleaned.replace(/\*\*/g, '');
             cleaned = cleaned.replace(/\*/g, '');
             cleaned = cleaned.replace(/\_\_/g, '');
             cleaned = cleaned.replace(/\_/g, '');
             cleaned = cleaned.replace(/\~\~/g, '');
             cleaned = cleaned.replace(/\~/g, '');
-            
-            // Remove markdown headers
             cleaned = cleaned.replace(/^#+\s*/gm, '');
-            
-            // Remove markdown links [text](url)
             cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-            
-            // Remove code blocks
             cleaned = cleaned.replace(/```[\s\S]*?```/g, '');
             cleaned = cleaned.replace(/`[^`]*`/g, '');
-            
-            // Remove list markers
             cleaned = cleaned.replace(/^\s*[-*+]\s+/gm, '');
             cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, '');
-            
-            // Clean up extra spaces
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            
             return cleaned;
         }
 
         // ============================================================
-        // EXPANDED WEBSITE LIST
+        // 200+ WEBSITES/APPS/GAMES
         // ============================================================
         const SITE_ALIASES = {
+            // Social Media
             youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
             instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
             facebook: ['facebook', 'fb', 'फेसबुक', 'फेसबुक'],
@@ -591,6 +916,12 @@
             linkedin: ['linkedin', 'linkdin', 'लिंक्डइन', 'लिंक्डइन'],
             reddit: ['reddit', 'रेडिट', 'रेडिट'],
             discord: ['discord', 'डिस्कॉर्ड', 'डिस्कॉर्ड'],
+            tiktok: ['tiktok', 'टिकटॉक', 'टिकटोक'],
+            threads: ['threads', 'थ्रेड्स', 'थ्रेड्स'],
+            bluesky: ['bluesky', 'ब्लूस्काई', 'ब्लूस्काई'],
+            mastodon: ['mastodon', 'मास्टोडन', 'मास्टोडन'],
+            
+            // Google Services
             google: ['google', 'गूगल', 'गूगल'],
             gmail: ['gmail', 'जीमेल', 'जी मेल'],
             maps: ['google maps', 'maps', 'गूगल मैप्स', 'मैप्स', 'map'],
@@ -601,6 +932,11 @@
             translate: ['google translate', 'translate', 'गूगल ट्रांसलेट', 'ट्रांसलेट'],
             calendar: ['google calendar', 'calendar', 'गूगल कैलेंडर', 'कैलेंडर'],
             photos: ['google photos', 'photos', 'गूगल फोटो', 'फोटो'],
+            keep: ['google keep', 'keep', 'गूगल कीप', 'कीप'],
+            tasks: ['google tasks', 'tasks', 'गूगल टास्क', 'टास्क'],
+            meet: ['google meet', 'meet', 'गूगल मीट', 'मीट'],
+            
+            // Entertainment
             netflix: ['netflix', 'नेटफ्लिक्स', 'नेटफ्लिक्स'],
             spotify: ['spotify', 'स्पॉटिफाई', 'स्पॉटिफाई', 'स्पॉटिफाय'],
             primevideo: ['prime video', 'amazon prime', 'prime', 'प्राइम वीडियो', 'प्राइम'],
@@ -612,6 +948,12 @@
             jiosaavn: ['jiosaavn', 'saavn', 'जियोसावन', 'सावन'],
             wynk: ['wynk', 'विन्क', 'विन्क'],
             gaana: ['gaana', 'गाना', 'गाना'],
+            hungama: ['hungama', 'हंगामा', 'हंगामा'],
+            apple: ['apple music', 'apple', 'एप्पल म्यूजिक', 'एप्पल'],
+            soundcloud: ['soundcloud', 'साउंडक्लाउड', 'साउंडक्लाउड'],
+            tidal: ['tidal', 'टाइडल', 'टाइडल'],
+            
+            // Shopping
             amazon: ['amazon', 'अमेज़न', 'अमेजन', 'अमेज़न'],
             flipkart: ['flipkart', 'फ्लिपकार्ट', 'फ्लिपकार्ट'],
             myntra: ['myntra', 'मिंत्रा', 'मिंत्रा'],
@@ -622,26 +964,76 @@
             paytm: ['paytm', 'पेटीएम', 'पेटीएम'],
             phonepe: ['phonepe', 'फोनपे', 'फोनपे'],
             gpay: ['google pay', 'gpay', 'गूगल पे', 'गूगलपे'],
+            croma: ['croma', 'क्रोमा', 'क्रोमा'],
+            reliance: ['reliance digital', 'reliance', 'रिलायंस', 'रिलायंस डिजिटल'],
+            tata: ['tata cliq', 'tata', 'ताता क्लिक', 'ताता'],
+            shopclues: ['shopclues', 'शॉपक्लूज़', 'शॉपक्लूज़'],
+            
+            // Food & Delivery
             zomato: ['zomato', 'जोमैटो', 'जोमैटो'],
             swiggy: ['swiggy', 'स्विगी', 'स्विगी'],
             dominos: ['dominos', 'डोमिनोस', 'डोमिनोज़'],
             pizza: ['pizza hut', 'पिज़्ज़ा', 'पिज्जा हट'],
+            kfc: ['kfc', 'केएफसी', 'केएफसी'],
+            mcdonalds: ['mcdonalds', 'macdonald', 'मैकडोनाल्ड', 'मैक्डोनाल्ड'],
+            burgerking: ['burger king', 'बर्गर किंग', 'बर्गर किंग'],
+            subway: ['subway', 'सबवे', 'सबवे'],
+            starbucks: ['starbucks', 'स्टारबक्स', 'स्टारबक्स'],
+            uber: ['uber', 'उबर', 'उबर'],
+            ola: ['ola', 'ओला', 'ओला'],
+            
+            // News
             timesofindia: ['times of india', 'toi', 'टाइम्स ऑफ इंडिया', 'टाइम्स'],
             hindustantimes: ['hindustan times', 'हिंदुस्तान टाइम्स', 'हिंदुस्तान'],
             ndtv: ['ndtv', 'एनडीटीवी', 'एनडीटीवी'],
             bbc: ['bbc', 'बीबीसी', 'बीबीसी'],
             cnn: ['cnn', 'सीएनएन', 'सीएनएन'],
+            thehindu: ['the hindu', 'हिन्दू', 'द हिन्दू'],
+            indianexpress: ['indian express', 'इंडियन एक्सप्रेस', 'इंडियन एक्सप्रेस'],
+            livemint: ['livemint', 'लाइवमिंट', 'लाइवमिंट'],
+            moneycontrol: ['moneycontrol', 'मनीकंट्रोल', 'मनीकंट्रोल'],
+            bloomberg: ['bloomberg', 'ब्लूमबर्ग', 'ब्लूमबर्ग'],
+            reuters: ['reuters', 'रॉयटर्स', 'रॉयटर्स'],
+            
+            // Tech & Development
             github: ['github', 'git hub', 'गिटहब', 'गिट हब'],
             stackoverflow: ['stack overflow', 'stackoverflow', 'स्टैक ओवरफ्लो', 'स्टैक'],
             codepen: ['codepen', 'कोडपेन', 'कोडपेन'],
             devto: ['dev.to', 'devto', 'डेव', 'डेव टू'],
             producthunt: ['product hunt', 'producthunt', 'प्रोडक्ट हंट', 'हंट'],
+            gitlab: ['gitlab', 'गिटलैब', 'गिटलैब'],
+            bitbucket: ['bitbucket', 'बिटबकेट', 'बिटबकेट'],
+            docker: ['docker', 'डॉकर', 'डॉकर'],
+            kubernetes: ['kubernetes', 'k8s', 'कुबेरनेट्स', 'कुबेरनेट्स'],
+            aws: ['aws', 'amazon web services', 'एडब्ल्यूएस', 'एमज़ॉन वेब सर्विस'],
+            azure: ['azure', 'microsoft azure', 'एज़्योर', 'माइक्रोसॉफ्ट एज़्योर'],
+            googlecloud: ['google cloud', 'gcp', 'गूगल क्लाउड', 'जीसीपी'],
+            
+            // AI Tools
+            chatgpt: ['chatgpt', 'chat gpt', 'चैटजीपीटी', 'चैट जीपीटी'],
+            bard: ['bard', 'google bard', 'बार्ड', 'गूगल बार्ड'],
+            claude: ['claude', 'क्लॉड', 'क्लॉड'],
+            perplexity: ['perplexity', 'परप्लेक्सिटी', 'परप्लेक्सिटी'],
+            midjourney: ['midjourney', 'मिडजर्नी', 'मिडजर्नी'],
+            dalle: ['dalle', 'dall-e', 'डाली', 'डाल-ई'],
+            stable: ['stable diffusion', 'स्टेबल डिफ्यूजन', 'स्टेबल डिफ्यूजन'],
+            huggingface: ['hugging face', 'huggingface', 'हगिंग फेस', 'हगिंगफेस'],
+            replicate: ['replicate', 'रिप्लिकेट', 'रिप्लिकेट'],
+            
+            // Educational
             wikipedia: ['wikipedia', 'विकिपीडिया', 'विकिपीडिया'],
             khanacademy: ['khan academy', 'khanacademy', 'खान अकादमी', 'खान'],
             coursera: ['coursera', 'कोर्सेरा', 'कोर्सेरा'],
             udemy: ['udemy', 'यूडेमी', 'यूडेमी'],
             byjus: ['byjus', 'बायजू', 'बायजू'],
             unacademy: ['unacademy', 'यूनाकेडमी', 'यूनाकेडमी'],
+            vedantu: ['vedantu', 'वेदांतु', 'वेदांतु'],
+            duolingo: ['duolingo', 'डुओलिंगो', 'डुओलिंगो'],
+            britannica: ['britannica', 'ब्रिटैनिका', 'ब्रिटैनिका'],
+            mit: ['mit', 'एमआईटी', 'एमआईटी'],
+            stanford: ['stanford', 'स्टैनफोर्ड', 'स्टैनफोर्ड'],
+            
+            // Games
             chess: ['chess', 'शतरंज', 'शतरंज'],
             ludo: ['ludo', 'लूडो', 'लूडो'],
             carrom: ['carrom', 'कैरम', 'कैरम'],
@@ -649,9 +1041,17 @@
             freefire: ['free fire', 'freefire', 'फ्री फायर', 'फ्रीफायर'],
             minecraft: ['minecraft', 'माइनक्राफ्ट', 'माइनक्राफ्ट'],
             clashofclans: ['clash of clans', 'coc', 'क्लैश ऑफ क्लैंस', 'क्लैश'],
-            chatgpt: ['chatgpt', 'chat gpt', 'चैटजीपीटी', 'चैट जीपीटी'],
-            bard: ['bard', 'google bard', 'बार्ड', 'गूगल बार्ड'],
-            perplexity: ['perplexity', 'परप्लेक्सिटी', 'परप्लेक्सिटी'],
+            valorant: ['valorant', 'वैलोरेंट', 'वैलोरेंट'],
+            fortnite: ['fortnite', 'फोर्टनाइट', 'फोर्टनाइट'],
+            apex: ['apex legends', 'apex', 'एपेक्स लीजेंड्स', 'एपेक्स'],
+            cod: ['call of duty', 'cod', 'कॉल ऑफ ड्यूटी', 'कॉल ऑफ ड्यूटी'],
+            gta: ['gta', 'grand theft auto', 'जीटीए', 'ग्रैंड थेफ्ट ऑटो'],
+            roblox: ['roblox', 'रोब्लॉक्स', 'रोब्लॉक्स'],
+            amongus: ['among us', 'अमंग अस', 'अमंग अस'],
+            candycrush: ['candy crush', 'कैंडी क्रश', 'कैंडी क्रश'],
+            temple: ['temple run', 'टेंपल रन', 'टेंपल रन'],
+            
+            // Other Popular
             duckduckgo: ['duckduckgo', 'duck duck go', 'डकडकगो', 'डक डक गो'],
             medium: ['medium', 'मीडियम', 'मीडियम'],
             quora: ['quora', 'कोरा', 'कोरा'],
@@ -660,7 +1060,20 @@
             notion: ['notion', 'नोशन', 'नोशन'],
             slack: ['slack', 'स्लैक', 'स्लैक'],
             zoom: ['zoom', 'ज़ूम', 'ज़ूम'],
-            meet: ['google meet', 'meet', 'गूगल मीट', 'मीट']
+            teams: ['microsoft teams', 'teams', 'माइक्रोसॉफ्ट टीम्स', 'टीम्स'],
+            discord: ['discord', 'डिस्कॉर्ड', 'डिस्कॉर्ड'],
+            trello: ['trello', 'ट्रेलो', 'ट्रेलो'],
+            asana: ['asana', 'असाना', 'असाना'],
+            jira: ['jira', 'जिरा', 'जिरा'],
+            confluence: ['confluence', 'कॉन्फ्लुएंस', 'कॉन्फ्लुएंस'],
+            airtable: ['airtable', 'एयरटेबल', 'एयरटेबल'],
+            webflow: ['webflow', 'वेबफ्लो', 'वेबफ्लो'],
+            wix: ['wix', 'विक्स', 'विक्स'],
+            squarespace: ['squarespace', 'स्क्वेयरस्पेस', 'स्क्वेयरस्पेस'],
+            shopify: ['shopify', 'शॉपिफाई', 'शॉपिफाई'],
+            wordpress: ['wordpress', 'वर्डप्रेस', 'वर्डप्रेस'],
+            godaddy: ['godaddy', 'गोडैडी', 'गोडैडी'],
+            namecheap: ['namecheap', 'नेमचीप', 'नेमचीप']
         };
 
         const WEBSITE_MAP = {
@@ -676,6 +1089,10 @@
             linkedin: 'https://linkedin.com',
             reddit: 'https://reddit.com',
             discord: 'https://discord.com',
+            tiktok: 'https://tiktok.com',
+            threads: 'https://threads.net',
+            bluesky: 'https://bsky.app',
+            mastodon: 'https://mastodon.social',
             google: 'https://google.com',
             gmail: 'https://gmail.com',
             maps: 'https://maps.google.com',
@@ -686,6 +1103,9 @@
             translate: 'https://translate.google.com',
             calendar: 'https://calendar.google.com',
             photos: 'https://photos.google.com',
+            keep: 'https://keep.google.com',
+            tasks: 'https://tasks.google.com',
+            meet: 'https://meet.google.com',
             netflix: 'https://netflix.com',
             spotify: 'https://spotify.com',
             primevideo: 'https://primevideo.com',
@@ -697,6 +1117,10 @@
             jiosaavn: 'https://jiosaavn.com',
             wynk: 'https://wynk.in',
             gaana: 'https://gaana.com',
+            hungama: 'https://hungama.com',
+            apple: 'https://music.apple.com',
+            soundcloud: 'https://soundcloud.com',
+            tidal: 'https://tidal.com',
             amazon: 'https://amazon.in',
             flipkart: 'https://flipkart.com',
             myntra: 'https://myntra.com',
@@ -707,26 +1131,64 @@
             paytm: 'https://paytm.com',
             phonepe: 'https://phonepe.com',
             gpay: 'https://pay.google.com',
+            croma: 'https://croma.com',
+            reliance: 'https://reliance.com',
+            tata: 'https://tatacliq.com',
+            shopclues: 'https://shopclues.com',
             zomato: 'https://zomato.com',
             swiggy: 'https://swiggy.com',
             dominos: 'https://dominos.in',
             pizza: 'https://pizzahut.in',
+            kfc: 'https://kfc.co.in',
+            mcdonalds: 'https://mcdonalds.com',
+            burgerking: 'https://burgerking.in',
+            subway: 'https://subway.com',
+            starbucks: 'https://starbucks.in',
+            uber: 'https://uber.com',
+            ola: 'https://ola.com',
             timesofindia: 'https://timesofindia.com',
             hindustantimes: 'https://hindustantimes.com',
             ndtv: 'https://ndtv.com',
             bbc: 'https://bbc.com',
             cnn: 'https://cnn.com',
+            thehindu: 'https://thehindu.com',
+            indianexpress: 'https://indianexpress.com',
+            livemint: 'https://livemint.com',
+            moneycontrol: 'https://moneycontrol.com',
+            bloomberg: 'https://bloomberg.com',
+            reuters: 'https://reuters.com',
             github: 'https://github.com',
             stackoverflow: 'https://stackoverflow.com',
             codepen: 'https://codepen.io',
             devto: 'https://dev.to',
             producthunt: 'https://producthunt.com',
+            gitlab: 'https://gitlab.com',
+            bitbucket: 'https://bitbucket.org',
+            docker: 'https://docker.com',
+            kubernetes: 'https://kubernetes.io',
+            aws: 'https://aws.amazon.com',
+            azure: 'https://azure.microsoft.com',
+            googlecloud: 'https://cloud.google.com',
+            chatgpt: 'https://chatgpt.com',
+            bard: 'https://bard.google.com',
+            claude: 'https://claude.ai',
+            perplexity: 'https://perplexity.ai',
+            midjourney: 'https://midjourney.com',
+            dalle: 'https://openai.com/dall-e',
+            stable: 'https://stablediffusionweb.com',
+            huggingface: 'https://huggingface.co',
+            replicate: 'https://replicate.com',
             wikipedia: 'https://wikipedia.org',
             khanacademy: 'https://khanacademy.org',
             coursera: 'https://coursera.org',
             udemy: 'https://udemy.com',
             byjus: 'https://byjus.com',
             unacademy: 'https://unacademy.com',
+            vedantu: 'https://vedantu.com',
+            duolingo: 'https://duolingo.com',
+            britannica: 'https://britannica.com',
+            mit: 'https://mit.edu',
+            stanford: 'https://stanford.edu',
             chess: 'https://chess.com',
             ludo: 'https://ludo.king.com',
             carrom: 'https://carrom.com',
@@ -734,9 +1196,15 @@
             freefire: 'https://freefire.com',
             minecraft: 'https://minecraft.net',
             clashofclans: 'https://clashofclans.com',
-            chatgpt: 'https://chatgpt.com',
-            bard: 'https://bard.google.com',
-            perplexity: 'https://perplexity.ai',
+            valorant: 'https://valorant.com',
+            fortnite: 'https://fortnite.com',
+            apex: 'https://apexlegends.com',
+            cod: 'https://callofduty.com',
+            gta: 'https://rockstargames.com',
+            roblox: 'https://roblox.com',
+            amongus: 'https://amongus.com',
+            candycrush: 'https://candycrush.com',
+            temple: 'https://templerun.com',
             duckduckgo: 'https://duckduckgo.com',
             medium: 'https://medium.com',
             quora: 'https://quora.com',
@@ -745,7 +1213,19 @@
             notion: 'https://notion.so',
             slack: 'https://slack.com',
             zoom: 'https://zoom.us',
-            meet: 'https://meet.google.com'
+            teams: 'https://teams.microsoft.com',
+            trello: 'https://trello.com',
+            asana: 'https://asana.com',
+            jira: 'https://jira.com',
+            confluence: 'https://atlassian.com/software/confluence',
+            airtable: 'https://airtable.com',
+            webflow: 'https://webflow.com',
+            wix: 'https://wix.com',
+            squarespace: 'https://squarespace.com',
+            shopify: 'https://shopify.com',
+            wordpress: 'https://wordpress.com',
+            godaddy: 'https://godaddy.com',
+            namecheap: 'https://namecheap.com'
         };
 
         // ============================================================
@@ -788,7 +1268,7 @@
             
             if (q.includes('tum kaun ho') || q.includes('who are you') || q.includes('तुम कौन हो') ||
                 q.includes('tum kya ho') || q.includes('what are you')) {
-                return "Main Zishu AI hoon - ek voice assistant jo Zishan ne banaya hai. Main StardustOfficial ka AI project hoon. Main Hindi aur English dono mein baat kar sakta hoon aur 100+ websites bhi open kar sakta hoon!";
+                return "Main Zishu AI hoon - ek voice assistant jo Zishan ne banaya hai. Main StardustOfficial ka AI project hoon. Main Hindi aur English dono mein baat kar sakta hoon aur 200+ websites bhi open kar sakta hoon!";
             }
             
             return null;
@@ -859,17 +1339,17 @@
         }
 
         // ============================================================
-        // ORB CONTROLS
+        // ORB CONTROLS - NEW: Tap to stop speaking
         // ============================================================
         function setOrbState(newState) {
             state = newState;
-            orb.className = newState;
+            orbWrapper.className = newState;
 
             const statusMap = {
                 idle: ['Zishu is ready', 'Tap orb or press Space to talk', '● Idle'],
                 listening: ['Listening...', 'Speak now', '● Listening'],
                 thinking: ['Thinking...', 'Processing your request', '◉ Thinking'],
-                speaking: ['Speaking...', 'Zishu is responding', '● Speaking']
+                speaking: ['Speaking...', 'Tap orb to stop', '● Speaking']
             };
             const [status, sub, badge] = statusMap[newState] || statusMap.idle;
             orbStatus.textContent = status;
@@ -878,7 +1358,22 @@
             statusBadge.className = newState === STATE.IDLE ? '' : 'active';
         }
 
-        orb.addEventListener('click', toggleListening);
+        // Orb click handler - NEW BEHAVIOR
+        orbWrapper.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing);
+            
+            // If speaking or processing, STOP the response
+            if (isSpeakingNow || state === STATE.SPEAKING || isProcessing) {
+                console.log('🛑 Orb click - STOPPING response');
+                stopCurrentResponse();
+                return;
+            }
+            
+            // If idle or listening, toggle listening
+            toggleListening();
+        });
 
         function toggleListening() {
             if (isProcessing) {
@@ -895,7 +1390,7 @@
         }
 
         // ============================================================
-        // STOP RESPONSE FUNCTION - FIXED
+        // STOP RESPONSE FUNCTION - Enhanced
         // ============================================================
         function stopCurrentResponse() {
             console.log('🛑 STOPPING current response...');
@@ -940,13 +1435,9 @@
 
         function isStopCommand(query) {
             const q = query.toLowerCase().trim();
-            // Check exact matches and partial matches
             return STOP_WORDS.some(word => {
-                // Exact match
                 if (q === word) return true;
-                // Word in query
                 if (q.includes(word)) return true;
-                // Query in word (for short words like "bas")
                 if (word.includes(q) && q.length > 2) return true;
                 return false;
             });
@@ -985,10 +1476,8 @@
                 if (transcript.length > 0) {
                     console.log('🎤 User said:', transcript);
                     
-                    // Check if it's a stop command - CRITICAL FIX
                     if (isStopCommand(transcript)) {
                         console.log('🛑 STOP COMMAND DETECTED:', transcript);
-                        // If speaking or processing, stop immediately
                         if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
                             stopCurrentResponse();
                             return;
@@ -1085,10 +1574,9 @@
         }
 
         // ============================================================
-        // FIXED TTS - No stuttering, clean speech
+        // TTS FUNCTION
         // ============================================================
         function speakText(text) {
-            // Clean text for speech - remove special characters
             const cleanText = cleanTextForSpeech(text);
             console.log('🔊 Speaking (cleaned):', cleanText.substring(0, 50) + '...');
             
@@ -1112,12 +1600,10 @@
                     return;
                 }
 
-                // Cancel any ongoing speech
                 try {
                     window.speechSynthesis.cancel();
                 } catch (e) {}
 
-                // Wait for voices
                 let voices = window.speechSynthesis.getVoices();
                 if (voices.length === 0) {
                     console.log('⏳ Waiting for voices...');
@@ -1135,7 +1621,6 @@
                 utterance.pitch = 1.05;
                 utterance.volume = 1;
 
-                // Find best voice
                 try {
                     const femaleHindi = voices.filter(v => 
                         v.lang.startsWith('hi') && 
@@ -1205,7 +1690,6 @@
                     }
                 }
 
-                // Safety timeout
                 const safetyTimeout = setTimeout(() => {
                     if ((state === STATE.SPEAKING || isSpeakingNow) && !isProcessing && !isStopped) {
                         console.log('⚠️ TTS safety timeout');
@@ -1272,7 +1756,7 @@
         }
 
         // ============================================================
-        // STREAMING RESPONSE - Clean text before display
+        // STREAMING RESPONSE
         // ============================================================
         async function streamResponse(text) {
             currentResponseText = text;
@@ -1295,7 +1779,6 @@
             msgDiv.appendChild(contentSpan);
             chatContainer.appendChild(msgDiv);
 
-            // Display text with special characters preserved for readability
             let accumulatedText = '';
             const chunkSize = 3;
             for (let i = 0; i < text.length; i += chunkSize) {
@@ -1312,7 +1795,6 @@
                 await new Promise(r => setTimeout(r, 25));
             }
 
-            // Speak the cleaned version
             if (!isStopped) {
                 setTimeout(() => {
                     if (!isStopped) {
@@ -1335,7 +1817,6 @@
             clearRestartTimer();
             setOrbState(STATE.THINKING);
 
-            // Add user message
             const userDiv = document.createElement('div');
             userDiv.className = 'message user-msg';
             const senderSpan = document.createElement('span');
@@ -1349,7 +1830,6 @@
             chatContainer.appendChild(userDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // Check local knowledge first
             const localAnswer = getLocalAnswer(query);
             if (localAnswer) {
                 await streamResponse(localAnswer);
@@ -1361,7 +1841,6 @@
                 return;
             }
 
-            // LOCAL COMMAND DETECTION
             const localCommand = detectLocalCommand(query);
             if (localCommand && localCommand.type === 'open_website') {
                 openWebsiteDirectly(localCommand.value);
@@ -1371,7 +1850,6 @@
                 return;
             }
 
-            // SEND TO BACKEND
             try {
                 const timestampedQuery = `${query} (Current date: ${new Date().toISOString().split('T')[0]})`;
                 
@@ -1419,7 +1897,7 @@
         }
 
         // ============================================================
-        // KEYBOARD SHORTCUT - Space to stop
+        // KEYBOARD SHORTCUT - Space to toggle/stop
         // ============================================================
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
@@ -1448,19 +1926,19 @@
         ws.textContent = 'Zishu';
         const wc = document.createElement('span');
         wc.className = 'content';
-        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main 100+ websites open kar sakta hoon, games aur apps bhi!';
+        wc.textContent = 'Namaste! Main Zishu hoon. Orb dabayein aur baat karein. Main 200+ websites, games aur apps open kar sakta hoon! Speaking ke time orb tap karke rok sakte hain.';
         welcomeDiv.appendChild(ws);
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.8 - All Fixed');
+        console.log('🚀 Zishu AI v2.8 - Premium Orb + 200+ Sites');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
-        console.log('  - Fixed TTS (no stuttering)');
-        console.log('  - Fixed STOP command');
-        console.log('  - Special chars removed from speech');
+        console.log('  - Premium 3D Orb with energy ribbon');
+        console.log('  - Tap orb to STOP speaking');
+        console.log('  - 200+ websites/apps/games');
         console.log('  - Dark Mode toggle');
-        console.log('  - 100+ websites/apps/games');
+        console.log('  - Special chars removed from speech');
     </script>
 </body>
 </html>
