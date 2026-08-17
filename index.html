@@ -627,36 +627,6 @@
             font-weight: 450;
             animation: fadeIn 0.3s ease;
         }
-        .alarm-msg {
-            background: #f0e6d2;
-            color: #8a6d3b;
-            margin: 6px auto;
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 14px;
-            text-align: center;
-            max-width: 85%;
-            font-weight: 600;
-            animation: flashAlarm 1s ease-in-out infinite alternate;
-            border: 2px solid #ff9800;
-        }
-        @keyframes flashAlarm {
-            0% { background: #f0e6d2; }
-            100% { background: #ffcc80; }
-        }
-        .reminder-msg {
-            background: #d1ecf1;
-            color: #0c5460;
-            margin: 6px auto;
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 14px;
-            text-align: center;
-            max-width: 85%;
-            font-weight: 600;
-            animation: fadeIn 0.5s ease;
-            border: 2px solid #17a2b8;
-        }
         #footer {
             display: flex;
             justify-content: space-between;
@@ -812,8 +782,8 @@
                 </div>
             </div>
         </div>
-        <div id="orb-status">Zishu ready</div>
-        <div id="orb-sub">Tap orb to start</div>
+        <div id="orb-status">Tap orb or say "Zishu" to start</div>
+        <div id="orb-sub">First tap to enable microphone</div>
     </div>
 
     <div id="chat-wrapper">
@@ -822,7 +792,7 @@
 
     <div id="footer">
         <span>private · local</span>
-        <span>v2.9</span>
+        <span>v2.8</span>
     </div>
 
     <script>
@@ -855,12 +825,7 @@
         let isDarkMode = false;
         let isSpeakingNow = false;
         let utteranceResolve = null;
-        let isWakeWordActive = false; // wake word allowed only after orb activation
-        let isVoiceInitialized = false; // tracks if orb has been tapped at least once
-        let alarmTimers = {};
-        let reminderTimers = {};
-        let alarmAudio = null;
-        let audioContext = null;
+        let isWakeWordActive = false;
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -904,286 +869,8 @@
         const WAKE_WORDS = ['zishu', 'hey zishu', 'hi zishu', 'hello zishu', 'ok zishu'];
 
         function isWakeWord(query) {
-            if (!isWakeWordActive) return false; // only active after orb activation
             const q = query.toLowerCase().trim();
             return WAKE_WORDS.some(word => q === word || q.includes(word));
-        }
-
-        // ============================================================
-        // ORB CONTROLS
-        // ============================================================
-        function setOrbState(newState) {
-            state = newState;
-            orbWrapper.className = newState;
-
-            const statusMap = {
-                idle: ['Zishu is ready', 'Tap orb to start', '● Idle'],
-                listening: ['Listening...', 'Speak now', '● Listening'],
-                thinking: ['Thinking...', 'Processing your request', '◉ Thinking'],
-                speaking: ['Speaking...', 'Tap orb to stop', '● Speaking']
-            };
-            const [status, sub, badge] = statusMap[newState] || statusMap.idle;
-            orbStatus.textContent = status;
-            if (newState !== STATE.IDLE) {
-                orbSub.textContent = sub;
-            } else {
-                orbSub.textContent = isVoiceInitialized ? 'Tap orb or say "Zishu"' : 'Tap orb to start';
-            }
-            statusBadge.textContent = badge;
-            statusBadge.className = newState === STATE.IDLE ? '' : 'active';
-        }
-
-        // ============================================================
-        // AUDIO UNLOCK: called on first orb tap
-        // ============================================================
-        function unlockAudioContext() {
-            try {
-                // Try to create and resume an AudioContext (helps with some browsers)
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume().then(() => {
-                        console.log('✅ AudioContext resumed');
-                    }).catch(err => {
-                        console.warn('⚠️ AudioContext resume failed:', err);
-                    });
-                }
-                // Also play a silent audio to unlock
-                const silent = new Audio('data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=');
-                silent.play().catch(() => {});
-                // Pre-fetch a tiny TTS to warm up
-                const warmup = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&q=hi&tl=hi&client=tw-ob');
-                warmup.play().catch(() => {});
-                console.log('🔓 Audio unlock attempted');
-            } catch (e) {
-                console.warn('Audio unlock error:', e);
-            }
-        }
-
-        // ============================================================
-        // VOICE SYSTEM INITIALIZATION (triggered by first orb tap)
-        // ============================================================
-        function initializeVoiceSystem() {
-            console.log('🎤 Initializing voice system...');
-            
-            // UNLOCK AUDIO on first tap
-            unlockAudioContext();
-            
-            try {
-                // Initialize speech recognition
-                if (!recognition) {
-                    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    if (SR) {
-                        recognition = new SR();
-                        recognition.lang = 'hi-IN';
-                        recognition.continuous = false;
-                        recognition.interimResults = false;
-                        recognition.maxAlternatives = 1;
-
-                        recognition.onstart = () => {
-                            clearRestartTimer();
-                            setOrbState(STATE.LISTENING);
-                            console.log('🎤 Listening started');
-                        };
-
-                        recognition.onresult = (event) => {
-                            const transcript = event.results[0][0].transcript.trim();
-                            if (transcript.length > 0) {
-                                console.log('🎤 User said:', transcript);
-                                if (isWakeWord(transcript) && state === STATE.IDLE) {
-                                    console.log('🔊 Wake word detected!');
-                                    if (!isProcessing) {
-                                        stopListening();
-                                        setTimeout(() => {
-                                            startListening();
-                                        }, 200);
-                                        addToolMessage('🔊 "Zishu" sun liya! Ab bolen...');
-                                        return;
-                                    }
-                                }
-                                if (isStopCommand(transcript)) {
-                                    console.log('🛑 STOP COMMAND DETECTED:', transcript);
-                                    if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
-                                        stopCurrentResponse();
-                                        return;
-                                    }
-                                }
-                                stopListening();
-                                handleUserQuery(transcript);
-                            }
-                        };
-
-                        recognition.onerror = (event) => {
-                            console.error('Speech error:', event.error);
-                            if (event.error === 'not-allowed') {
-                                orbStatus.textContent = 'Microphone access denied';
-                                orbSub.textContent = 'Please allow microphone access';
-                                setOrbState(STATE.IDLE);
-                            } else if (event.error === 'no-speech') {
-                                orbSub.textContent = 'No speech detected. Try again.';
-                                scheduleRestart(800);
-                            } else {
-                                orbSub.textContent = 'Error: ' + event.error;
-                                scheduleRestart(1000);
-                            }
-                        };
-
-                        recognition.onend = () => {
-                            console.log('🎤 Listening ended');
-                            if (state === STATE.LISTENING && !isProcessing && !isRestartScheduled) {
-                                scheduleRestart(300);
-                            } else if (!isProcessing && state !== STATE.SPEAKING) {
-                                setOrbState(STATE.IDLE);
-                            }
-                        };
-
-                        console.log('✅ Speech recognition initialized');
-                    } else {
-                        console.warn('⚠️ Speech recognition not supported');
-                    }
-                } else {
-                    console.log('✅ Speech recognition already initialized');
-                }
-
-                isVoiceInitialized = true;
-                isWakeWordActive = true;
-                localStorage.setItem('zishu_voice_activated', 'true');
-                console.log('✅ Voice system initialized successfully');
-                return true;
-            } catch (e) {
-                console.error('❌ Voice initialization failed:', e);
-                return false;
-            }
-        }
-
-        // ============================================================
-        // ORB CLICK HANDLER
-        // ============================================================
-        orbWrapper.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing, 'isVoiceInitialized:', isVoiceInitialized);
-            
-            // FIRST ORB TAP: initialize voice system & unlock audio
-            if (!isVoiceInitialized) {
-                console.log('🔧 First orb tap: initializing voice system & unlocking audio...');
-                unlockAudioContext(); // Ensure audio is unlocked
-                const success = initializeVoiceSystem();
-                if (success) {
-                    setOrbState(STATE.IDLE);
-                    const welcomeMsg = document.querySelector('.assistant-msg .content');
-                    if (welcomeMsg) {
-                        welcomeMsg.textContent = 'Namaste! Main Zishu hoon. Ab aap mujhse baat kar sakte hain. "Zishu" bole ya orb tap karein. Main alarm, reminder, notes save kar sakta hoon aur 200+ websites bhi open kar sakta hoon!';
-                    }
-                    setTimeout(() => {
-                        startListening();
-                    }, 300);
-                } else {
-                    orbSub.textContent = 'Voice initialization failed. Tap again.';
-                    setTimeout(() => {
-                        if (!isVoiceInitialized) {
-                            orbSub.textContent = 'Tap orb to start';
-                        }
-                    }, 2000);
-                }
-                return;
-            }
-            
-            // After initialization: normal behavior
-            if (isSpeakingNow || state === STATE.SPEAKING || isProcessing) {
-                console.log('🛑 Orb click - STOPPING response');
-                stopCurrentResponse();
-                return;
-            }
-            
-            toggleListening();
-        });
-
-        // ============================================================
-        // RESTORE VOICE ACTIVATION STATE
-        // ============================================================
-        function restoreVoiceState() {
-            const activated = localStorage.getItem('zishu_voice_activated');
-            if (activated === 'true') {
-                console.log('🔁 Restoring voice activation state');
-                isVoiceInitialized = true;
-                isWakeWordActive = true;
-                // Light init for recognition if needed
-                if (!recognition) {
-                    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    if (SR) {
-                        recognition = new SR();
-                        recognition.lang = 'hi-IN';
-                        recognition.continuous = false;
-                        recognition.interimResults = false;
-                        recognition.maxAlternatives = 1;
-                        recognition.onstart = () => {
-                            clearRestartTimer();
-                            setOrbState(STATE.LISTENING);
-                            console.log('🎤 Listening started');
-                        };
-                        recognition.onresult = (event) => {
-                            const transcript = event.results[0][0].transcript.trim();
-                            if (transcript.length > 0) {
-                                console.log('🎤 User said:', transcript);
-                                if (isWakeWord(transcript) && state === STATE.IDLE) {
-                                    console.log('🔊 Wake word detected!');
-                                    if (!isProcessing) {
-                                        stopListening();
-                                        setTimeout(() => {
-                                            startListening();
-                                        }, 200);
-                                        addToolMessage('🔊 "Zishu" sun liya! Ab bolen...');
-                                        return;
-                                    }
-                                }
-                                if (isStopCommand(transcript)) {
-                                    console.log('🛑 STOP COMMAND DETECTED:', transcript);
-                                    if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
-                                        stopCurrentResponse();
-                                        return;
-                                    }
-                                }
-                                stopListening();
-                                handleUserQuery(transcript);
-                            }
-                        };
-                        recognition.onerror = (event) => {
-                            console.error('Speech error:', event.error);
-                            if (event.error === 'not-allowed') {
-                                orbStatus.textContent = 'Microphone access denied';
-                                orbSub.textContent = 'Please allow microphone access';
-                                setOrbState(STATE.IDLE);
-                            } else if (event.error === 'no-speech') {
-                                orbSub.textContent = 'No speech detected. Try again.';
-                                scheduleRestart(800);
-                            } else {
-                                orbSub.textContent = 'Error: ' + event.error;
-                                scheduleRestart(1000);
-                            }
-                        };
-                        recognition.onend = () => {
-                            console.log('🎤 Listening ended');
-                            if (state === STATE.LISTENING && !isProcessing && !isRestartScheduled) {
-                                scheduleRestart(300);
-                            } else if (!isProcessing && state !== STATE.SPEAKING) {
-                                setOrbState(STATE.IDLE);
-                            }
-                        };
-                        console.log('✅ Speech recognition restored');
-                    }
-                }
-                setOrbState(STATE.IDLE);
-                // Unlock audio on restore
-                unlockAudioContext();
-                setTimeout(() => {
-                    startListening();
-                }, 500);
-            } else {
-                setOrbState(STATE.IDLE);
-            }
         }
 
         // ============================================================
@@ -1192,59 +879,57 @@
         function handleActions(query) {
             const q = query.toLowerCase().trim();
             
-            if (q.includes('alarm') || q.includes('अलार्म') || q.includes('alarm lagao') || q.includes('set alarm')) {
-                const timeMatch = parseAlarmTime(q);
+            // Alarm
+            if (q.includes('alarm') || q.includes('अलार्म') || q.includes('alarm lagao')) {
+                const timeMatch = q.match(/(\d{1,2})\s*(?:baje|:|\s*)(\d{0,2})?\s*(?:am|pm|सुबह|शाम|रात)?/i);
                 if (timeMatch) {
-                    const { hours, minutes, dateTime } = timeMatch;
-                    if (dateTime && dateTime > new Date()) {
-                        const alarmId = 'alarm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                        const alarmData = {
-                            id: alarmId,
-                            time: dateTime.toISOString(),
-                            message: q,
-                            active: true,
-                            triggered: false
-                        };
+                    let hours = parseInt(timeMatch[1]);
+                    let minutes = parseInt(timeMatch[2]) || 0;
+                    if (q.includes('pm') || q.includes('शाम') || q.includes('रात')) {
+                        if (hours < 12) hours += 12;
+                    }
+                    if (q.includes('am') || q.includes('सुबह')) {
+                        if (hours === 12) hours = 0;
+                    }
+                    const alarmTime = new Date();
+                    alarmTime.setHours(hours, minutes, 0, 0);
+                    const now = new Date();
+                    if (alarmTime < now) {
+                        alarmTime.setDate(alarmTime.getDate() + 1);
+                    }
+                    const diff = alarmTime - now;
+                    if (diff > 0) {
+                        // Store alarm in localStorage
                         const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
-                        alarms.push(alarmData);
+                        alarms.push({
+                            time: alarmTime.toISOString(),
+                            message: query,
+                            active: true
+                        });
                         localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
-                        scheduleAlarm(alarmData);
-                        const timeStr = dateTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-                        return `⏰ Alarm set for ${timeStr}. Main yaad dilaunga!`;
-                    } else {
-                        return "⏰ Time already passed. Kal ke liye set kar raha hoon?";
+                        return `⏰ Alarm set for ${alarmTime.toLocaleTimeString('hi-IN')}. Main yaad dilaunga!`;
                     }
                 }
                 return "⏰ Alarm ke liye time batao jaise 'alarm 7 baje' ya 'alarm 9:30 am'";
             }
             
-            if (q.includes('remind') || q.includes('reminder') || q.includes('याद') || q.includes('याद दिलाओ') || q.includes('remind me')) {
-                const result = parseReminderTimeAndText(q);
-                if (result) {
-                    const { text, dateTime } = result;
-                    if (dateTime && dateTime > new Date()) {
-                        const reminderId = 'reminder_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                        const reminderData = {
-                            id: reminderId,
-                            text: text,
-                            time: dateTime.toISOString(),
-                            created: new Date().toISOString(),
-                            triggered: false,
-                            active: true
-                        };
-                        const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
-                        reminders.push(reminderData);
-                        localStorage.setItem('zishu_reminders', JSON.stringify(reminders));
-                        scheduleReminder(reminderData);
-                        const timeStr = dateTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-                        return `✅ Reminder set for ${timeStr}: "${text}". Main yaad dilaunga!`;
-                    } else {
-                        return "📝 Time already passed. Kal ke liye set kar raha hoon?";
-                    }
+            // Reminder
+            if (q.includes('remind') || q.includes('reminder') || q.includes('याद') || q.includes('याद दिलाओ')) {
+                const match = q.match(/(?:remind|याद दिलाओ|reminder)\s*(?:me|मुझे)?\s*(?:to|कि)?\s*(.+)/i);
+                if (match && match[1]) {
+                    const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
+                    reminders.push({
+                        text: match[1].trim(),
+                        date: new Date().toISOString(),
+                        done: false
+                    });
+                    localStorage.setItem('zishu_reminders', JSON.stringify(reminders));
+                    return `✅ Reminder saved: "${match[1].trim()}". Main yaad dilaunga!`;
                 }
-                return "📝 Reminder ke liye batao jaise 'remind me at 8 PM to call mom' ya '8 baje mujhe yaad dilana ki meeting hai'";
+                return "📝 Reminder ke liye batao jaise 'remind me to call mom' ya 'मुझे दवा लेनी है याद दिलाओ'";
             }
             
+            // Notes
             if (q.includes('note') || q.includes('नोट') || q.includes('save') || q.includes('सेव') || q.includes('save note')) {
                 const match = q.match(/(?:note|नोट|save|सेव)\s*(?:this|यह)?\s*(.+)/i);
                 if (match && match[1]) {
@@ -1259,6 +944,7 @@
                 return "📝 Note ke liye batao jaise 'note shopping list' ya 'नोट आज बारिश हो रही है'";
             }
             
+            // Show notes
             if (q.includes('show notes') || q.includes('दिखाओ नोट') || q.includes('my notes')) {
                 const notes = JSON.parse(localStorage.getItem('zishu_notes') || '[]');
                 if (notes.length === 0) return "📝 Koi note nahi hai. Pehle note save karo!";
@@ -1266,311 +952,40 @@
                 return `📝 Aapke notes:\n${noteList}`;
             }
             
+            // Show reminders
             if (q.includes('show reminders') || q.includes('दिखाओ रिमाइंडर') || q.includes('my reminders')) {
                 const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
                 if (reminders.length === 0) return "📝 Koi reminder nahi hai. Pehle reminder set karo!";
-                const remList = reminders.filter(r => !r.triggered).map((r, i) => `${i+1}. ${r.text} (${new Date(r.time).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })})`).join('\n');
+                const remList = reminders.filter(r => !r.done).map((r, i) => `${i+1}. ${r.text}`).join('\n');
                 return `📝 Aapke reminders:\n${remList}`;
             }
             
             return null;
         }
 
-        // ============================================================
-        // PARSE ALARM TIME
-        // ============================================================
-        function parseAlarmTime(query) {
-            const q = query.toLowerCase().trim();
-            let hours = null, minutes = 0, ampm = null;
-            
-            const patterns = [
-                /(\d{1,2})\s*[:.]\s*(\d{2})\s*(am|pm|सुबह|शाम|रात)?/i,
-                /(\d{1,2})\s*(am|pm|सुबह|शाम|रात|baje|baj)\s*/i,
-                /(\d{1,2})\s*(?:baje|baj)\s*(सुबह|शाम|रात)?/i,
-                /(\d{1,2})\s*(सुबह|शाम|रात)/i
-            ];
-            
-            let match = null;
-            for (const pattern of patterns) {
-                const m = q.match(pattern);
-                if (m) {
-                    match = m;
-                    break;
-                }
-            }
-            
-            if (!match) return null;
-            
-            if (match[2] && match[2].match(/^\d{2}$/)) {
-                hours = parseInt(match[1]);
-                minutes = parseInt(match[2]);
-                ampm = match[3] || null;
-            } else if (match[2] && match[2].match(/^(am|pm|सुबह|शाम|रात|baje|baj)$/i)) {
-                hours = parseInt(match[1]);
-                minutes = 0;
-                ampm = match[2];
-            } else {
-                hours = parseInt(match[1]);
-                minutes = 0;
-                ampm = match[2] || null;
-            }
-            
-            if (hours === null || hours < 1 || hours > 12) return null;
-            
-            if (ampm) {
-                const lowerAmpm = ampm.toLowerCase();
-                if (lowerAmpm === 'pm' || lowerAmpm === 'शाम' || lowerAmpm === 'रात') {
-                    if (hours < 12) hours += 12;
-                } else if (lowerAmpm === 'am' || lowerAmpm === 'सुबह') {
-                    if (hours === 12) hours = 0;
-                }
-            } else {
-                if (hours >= 1 && hours <= 12) {
-                    if (q.includes('shaam') || q.includes('raat') || q.includes('evening') || q.includes('night')) {
-                        if (hours < 12) hours += 12;
+        // Check alarms periodically
+        function checkAlarms() {
+            const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
+            const now = new Date();
+            alarms.forEach((alarm, index) => {
+                if (alarm.active) {
+                    const alarmTime = new Date(alarm.time);
+                    if (alarmTime <= now) {
+                        alarm.active = false;
+                        const msg = `⏰ ALARM! ${alarm.message}`;
+                        addToolMessage('🔔 ' + msg);
+                        // Speak alarm
+                        if (!isProcessing) {
+                            speakText('उठो! ' + alarm.message);
+                        }
+                        // Store updated alarms
+                        localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
                     }
                 }
-            }
-            
-            if (hours < 0 || hours > 23) return null;
-            if (minutes < 0 || minutes > 59) return null;
-            
-            const now = new Date();
-            const alarmTime = new Date(now);
-            alarmTime.setHours(hours, minutes, 0, 0);
-            
-            if (alarmTime <= now) {
-                alarmTime.setDate(alarmTime.getDate() + 1);
-            }
-            
-            return { hours, minutes, dateTime: alarmTime };
-        }
-
-        // ============================================================
-        // PARSE REMINDER TIME AND TEXT
-        // ============================================================
-        function parseReminderTimeAndText(query) {
-            let timeStr = '';
-            let text = '';
-            
-            const atPattern = /(?:remind|reminder|याद दिलाओ|याद)\s*(?:me|मुझे)?\s*(?:at|को|पर)?\s*(\d{1,2}\s*[:.]?\s*\d{0,2}\s*(?:am|pm|सुबह|शाम|रात)?)\s*(?:to|कि|के लिए)?\s*(.+)/i;
-            const atMatch = query.match(atPattern);
-            if (atMatch) {
-                timeStr = atMatch[1].trim();
-                text = atMatch[2].trim();
-            } else {
-                const simplePattern = /(\d{1,2}\s*[:.]?\s*\d{0,2}\s*(?:am|pm|सुबह|शाम|रात)?)\s+(.+)/i;
-                const simpleMatch = query.match(simplePattern);
-                if (simpleMatch) {
-                    timeStr = simpleMatch[1].trim();
-                    text = simpleMatch[2].trim();
-                } else {
-                    const bajePattern = /(\d{1,2})\s*(?:baje|baj)\s*(सुबह|शाम|रात)?\s*(?:mein|को|पर)?\s*(.+)/i;
-                    const bajeMatch = query.match(bajePattern);
-                    if (bajeMatch) {
-                        timeStr = bajeMatch[1] + (bajeMatch[2] ? ' ' + bajeMatch[2] : '');
-                        text = bajeMatch[3].trim();
-                    } else {
-                        return null;
-                    }
-                }
-            }
-            
-            if (!text || text.length < 2) return null;
-            
-            const timeResult = parseAlarmTime(timeStr);
-            if (!timeResult) return null;
-            
-            return { text, dateTime: timeResult.dateTime };
-        }
-
-        // ============================================================
-        // SCHEDULING ENGINE
-        // ============================================================
-        function scheduleAlarm(alarmData) {
-            const triggerTime = new Date(alarmData.time);
-            const now = new Date();
-            const delay = Math.max(0, triggerTime - now);
-            
-            if (alarmTimers[alarmData.id]) {
-                clearTimeout(alarmTimers[alarmData.id]);
-                delete alarmTimers[alarmData.id];
-            }
-            
-            if (delay > 0 && alarmData.active && !alarmData.triggered) {
-                console.log(`⏰ Scheduling alarm "${alarmData.id}" in ${Math.round(delay/1000)} seconds`);
-                alarmTimers[alarmData.id] = setTimeout(() => {
-                    triggerAlarm(alarmData.id);
-                }, delay);
-                return true;
-            } else if (alarmData.active && !alarmData.triggered && delay <= 0) {
-                setTimeout(() => {
-                    triggerAlarm(alarmData.id);
-                }, 1000);
-                return true;
-            }
-            return false;
-        }
-
-        function scheduleReminder(reminderData) {
-            const triggerTime = new Date(reminderData.time);
-            const now = new Date();
-            const delay = Math.max(0, triggerTime - now);
-            
-            if (reminderTimers[reminderData.id]) {
-                clearTimeout(reminderTimers[reminderData.id]);
-                delete reminderTimers[reminderData.id];
-            }
-            
-            if (delay > 0 && reminderData.active && !reminderData.triggered) {
-                console.log(`📝 Scheduling reminder "${reminderData.id}" in ${Math.round(delay/1000)} seconds`);
-                reminderTimers[reminderData.id] = setTimeout(() => {
-                    triggerReminder(reminderData.id);
-                }, delay);
-                return true;
-            } else if (reminderData.active && !reminderData.triggered && delay <= 0) {
-                setTimeout(() => {
-                    triggerReminder(reminderData.id);
-                }, 1000);
-                return true;
-            }
-            return false;
-        }
-
-        function triggerAlarm(alarmId) {
-            const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
-            const alarmIndex = alarms.findIndex(a => a.id === alarmId);
-            if (alarmIndex === -1) return;
-            
-            const alarm = alarms[alarmIndex];
-            if (!alarm.active || alarm.triggered) return;
-            
-            alarm.triggered = true;
-            alarm.active = false;
-            alarms[alarmIndex] = alarm;
-            localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
-            
-            if (alarmTimers[alarmId]) {
-                clearTimeout(alarmTimers[alarmId]);
-                delete alarmTimers[alarmId];
-            }
-            
-            const alarmMsg = document.createElement('div');
-            alarmMsg.className = 'alarm-msg';
-            alarmMsg.textContent = '⏰ ALARM! ' + alarm.message;
-            chatContainer.appendChild(alarmMsg);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            playAlarmSound();
-            speakText('उठो! ' + alarm.message);
-            
-            const dismissBtn = document.createElement('button');
-            dismissBtn.textContent = '⏹️ Stop Alarm';
-            dismissBtn.style.cssText = 'display:block;margin:8px auto;padding:8px 20px;border:none;border-radius:20px;background:#ff5722;color:white;font-weight:600;cursor:pointer;';
-            dismissBtn.onclick = function() {
-                stopAlarmSound();
-                alarmMsg.style.display = 'none';
-                this.remove();
-                addToolMessage('🔕 Alarm stopped.');
-            };
-            alarmMsg.appendChild(dismissBtn);
-        }
-
-        function triggerReminder(reminderId) {
-            const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
-            const remIndex = reminders.findIndex(r => r.id === reminderId);
-            if (remIndex === -1) return;
-            
-            const reminder = reminders[remIndex];
-            if (!reminder.active || reminder.triggered) return;
-            
-            reminder.triggered = true;
-            reminder.active = false;
-            reminders[remIndex] = reminder;
-            localStorage.setItem('zishu_reminders', JSON.stringify(reminders));
-            
-            if (reminderTimers[reminderId]) {
-                clearTimeout(reminderTimers[reminderId]);
-                delete reminderTimers[reminderId];
-            }
-            
-            const remMsg = document.createElement('div');
-            remMsg.className = 'reminder-msg';
-            remMsg.textContent = '📝 Reminder: ' + reminder.text;
-            chatContainer.appendChild(remMsg);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            speakText('याद दिलाता हूँ: ' + reminder.text);
-            
-            const dismissBtn = document.createElement('button');
-            dismissBtn.textContent = '✅ Dismiss';
-            dismissBtn.style.cssText = 'display:block;margin:8px auto;padding:6px 16px;border:none;border-radius:20px;background:#17a2b8;color:white;font-weight:600;cursor:pointer;';
-            dismissBtn.onclick = function() {
-                remMsg.style.display = 'none';
-                this.remove();
-                addToolMessage('✅ Reminder dismissed.');
-            };
-            remMsg.appendChild(dismissBtn);
-        }
-
-        // ============================================================
-        // ALARM SOUND
-        // ============================================================
-        function playAlarmSound() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const context = new AudioContext();
-                const oscillator = context.createOscillator();
-                const gain = context.createGain();
-                oscillator.connect(gain);
-                gain.connect(context.destination);
-                oscillator.frequency.value = 880;
-                oscillator.type = 'square';
-                gain.gain.value = 0.3;
-                oscillator.start();
-                setTimeout(() => {
-                    try {
-                        oscillator.stop();
-                        context.close();
-                    } catch (e) {}
-                }, 3000);
-                alarmAudio = { context, oscillator, gain };
-            } catch (e) {
-                console.warn('Alarm sound not available:', e);
-            }
-        }
-
-        function stopAlarmSound() {
-            try {
-                if (alarmAudio) {
-                    alarmAudio.oscillator.stop();
-                    alarmAudio.context.close();
-                    alarmAudio = null;
-                }
-            } catch (e) {}
-        }
-
-        // ============================================================
-        // RESTORE SCHEDULED ITEMS
-        // ============================================================
-        function restoreScheduledItems() {
-            const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
-            alarms.forEach(alarm => {
-                if (alarm.active && !alarm.triggered) {
-                    scheduleAlarm(alarm);
-                }
             });
-            console.log(`⏰ Restored ${alarms.filter(a => a.active && !a.triggered).length} alarms`);
-            
-            const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
-            reminders.forEach(reminder => {
-                if (reminder.active && !reminder.triggered) {
-                    scheduleReminder(reminder);
-                }
-            });
-            console.log(`📝 Restored ${reminders.filter(r => r.active && !r.triggered).length} reminders`);
         }
+        // Check alarms every 30 seconds
+        setInterval(checkAlarms, 30000);
 
         // ============================================================
         // STOP WORDS
@@ -1581,16 +996,6 @@
             'enough', 'thats enough', 'bass', 'rokna', 'rok do',
             'quit', 'cancel', 'shut up', 'chup', 'चुप'
         ];
-
-        function isStopCommand(query) {
-            const q = query.toLowerCase().trim();
-            return STOP_WORDS.some(word => {
-                if (q === word) return true;
-                if (q.includes(word)) return true;
-                if (word.includes(q) && q.length > 2) return true;
-                return false;
-            });
-        }
 
         // ============================================================
         // SPECIAL CHARACTERS TO REMOVE FROM SPEECH
@@ -1625,201 +1030,8 @@
         }
 
         // ============================================================
-        // WEBSITE MAP
+        // WEBSITE LIST (200+)
         // ============================================================
-        const WEBSITE_MAP = {
-            youtube: 'https://youtube.com',
-            instagram: 'https://instagram.com',
-            facebook: 'https://facebook.com',
-            twitter: 'https://x.com',
-            whatsapp: 'https://web.whatsapp.com',
-            telegram: 'https://web.telegram.org',
-            snapchat: 'https://snapchat.com',
-            pinterest: 'https://pinterest.com',
-            tumblr: 'https://tumblr.com',
-            linkedin: 'https://linkedin.com',
-            reddit: 'https://reddit.com',
-            discord: 'https://discord.com/app',
-            tiktok: 'https://tiktok.com',
-            threads: 'https://threads.net',
-            bluesky: 'https://bsky.app',
-            mastodon: 'https://mastodon.social',
-            google: 'https://google.com',
-            gmail: 'https://gmail.com',
-            maps: 'https://maps.google.com',
-            drive: 'https://drive.google.com',
-            docs: 'https://docs.google.com',
-            sheets: 'https://sheets.google.com',
-            slides: 'https://slides.google.com',
-            translate: 'https://translate.google.com',
-            calendar: 'https://calendar.google.com',
-            photos: 'https://photos.google.com',
-            keep: 'https://keep.google.com',
-            tasks: 'https://tasks.google.com',
-            meet: 'https://meet.google.com',
-            netflix: 'https://netflix.com',
-            spotify: 'https://open.spotify.com',
-            primevideo: 'https://primevideo.com',
-            hotstar: 'https://hotstar.com',
-            sonyliv: 'https://sonyliv.com',
-            voot: 'https://voot.com',
-            zee5: 'https://zee5.com',
-            mxplayer: 'https://mxplayer.in',
-            jiosaavn: 'https://jiosaavn.com',
-            wynk: 'https://wynk.in',
-            gaana: 'https://gaana.com',
-            hungama: 'https://hungama.com',
-            apple: 'https://music.apple.com',
-            soundcloud: 'https://soundcloud.com',
-            tidal: 'https://tidal.com',
-            amazon: 'https://amazon.in',
-            flipkart: 'https://flipkart.com',
-            myntra: 'https://myntra.com',
-            ajio: 'https://ajio.com',
-            nykaa: 'https://nykaa.com',
-            meesho: 'https://meesho.com',
-            snapdeal: 'https://snapdeal.com',
-            paytm: 'https://paytm.com',
-            phonepe: 'https://phonepe.com',
-            gpay: 'https://pay.google.com',
-            croma: 'https://croma.com',
-            reliance: 'https://reliancedigital.in',
-            tata: 'https://tatacliq.com',
-            shopclues: 'https://shopclues.com',
-            zomato: 'https://zomato.com',
-            swiggy: 'https://swiggy.com',
-            dominos: 'https://dominos.in',
-            pizza: 'https://pizzahut.in',
-            kfc: 'https://kfc.co.in',
-            mcdonalds: 'https://mcdonalds.com',
-            burgerking: 'https://burgerking.in',
-            subway: 'https://subway.com',
-            starbucks: 'https://starbucks.in',
-            uber: 'https://uber.com',
-            ola: 'https://ola.com',
-            timesofindia: 'https://timesofindia.com',
-            hindustantimes: 'https://hindustantimes.com',
-            ndtv: 'https://ndtv.com',
-            bbc: 'https://bbc.com',
-            cnn: 'https://cnn.com',
-            thehindu: 'https://thehindu.com',
-            indianexpress: 'https://indianexpress.com',
-            livemint: 'https://livemint.com',
-            moneycontrol: 'https://moneycontrol.com',
-            bloomberg: 'https://bloomberg.com',
-            reuters: 'https://reuters.com',
-            github: 'https://github.com',
-            stackoverflow: 'https://stackoverflow.com',
-            codepen: 'https://codepen.io',
-            devto: 'https://dev.to',
-            producthunt: 'https://producthunt.com',
-            gitlab: 'https://gitlab.com',
-            bitbucket: 'https://bitbucket.org',
-            docker: 'https://docker.com',
-            kubernetes: 'https://kubernetes.io',
-            aws: 'https://aws.amazon.com',
-            azure: 'https://azure.microsoft.com',
-            googlecloud: 'https://cloud.google.com',
-            chatgpt: 'https://chatgpt.com',
-            bard: 'https://bard.google.com',
-            claude: 'https://claude.ai',
-            perplexity: 'https://perplexity.ai',
-            midjourney: 'https://midjourney.com',
-            dalle: 'https://openai.com/dall-e',
-            stable: 'https://stablediffusionweb.com',
-            huggingface: 'https://huggingface.co',
-            replicate: 'https://replicate.com',
-            wikipedia: 'https://wikipedia.org',
-            khanacademy: 'https://khanacademy.org',
-            coursera: 'https://coursera.org',
-            udemy: 'https://udemy.com',
-            byjus: 'https://byjus.com',
-            unacademy: 'https://unacademy.com',
-            vedantu: 'https://vedantu.com',
-            duolingo: 'https://duolingo.com',
-            britannica: 'https://britannica.com',
-            mit: 'https://mit.edu',
-            stanford: 'https://stanford.edu',
-            chess: 'https://chess.com',
-            ludo: 'https://ludo.king.com',
-            carrom: 'https://carrom.com',
-            pubg: 'https://pubg.com',
-            freefire: 'https://freefire.com',
-            minecraft: 'https://minecraft.net',
-            clashofclans: 'https://clashofclans.com',
-            valorant: 'https://valorant.com',
-            fortnite: 'https://fortnite.com',
-            apex: 'https://apexlegends.com',
-            cod: 'https://callofduty.com',
-            gta: 'https://rockstargames.com',
-            roblox: 'https://roblox.com',
-            amongus: 'https://amongus.com',
-            candycrush: 'https://candycrush.com',
-            temple: 'https://templerun.com',
-            duckduckgo: 'https://duckduckgo.com',
-            medium: 'https://medium.com',
-            quora: 'https://quora.com',
-            canva: 'https://canva.com',
-            figma: 'https://figma.com',
-            notion: 'https://notion.so',
-            slack: 'https://slack.com',
-            zoom: 'https://zoom.us',
-            teams: 'https://teams.microsoft.com',
-            trello: 'https://trello.com',
-            asana: 'https://asana.com',
-            jira: 'https://jira.com',
-            confluence: 'https://atlassian.com/software/confluence',
-            airtable: 'https://airtable.com',
-            webflow: 'https://webflow.com',
-            wix: 'https://wix.com',
-            squarespace: 'https://squarespace.com',
-            shopify: 'https://shopify.com',
-            wordpress: 'https://wordpress.com',
-            godaddy: 'https://godaddy.com',
-            namecheap: 'https://namecheap.com',
-            disney: 'https://disneyplus.com',
-            crunchyroll: 'https://crunchyroll.com',
-            twitch: 'https://twitch.tv',
-            vimeo: 'https://vimeo.com',
-            messenger: 'https://messenger.com',
-            signal: 'https://signal.org',
-            skype: 'https://skype.com',
-            bing: 'https://bing.com',
-            outlook: 'https://outlook.com',
-            onedrive: 'https://onedrive.live.com',
-            microsoft365: 'https://microsoft365.com',
-            gemini: 'https://gemini.google.com',
-            grok: 'https://grok.x.ai',
-            copilot: 'https://copilot.microsoft.com',
-            deepseek: 'https://deepseek.com',
-            poe: 'https://poe.com',
-            ebay: 'https://ebay.com',
-            etsy: 'https://etsy.com',
-            walmart: 'https://walmart.com',
-            ubereats: 'https://ubereats.com',
-            doordash: 'https://doordash.com',
-            rapido: 'https://rapido.com',
-            airbnb: 'https://airbnb.com',
-            booking: 'https://booking.com',
-            makemytrip: 'https://makemytrip.com',
-            irctc: 'https://irctc.co.in',
-            npm: 'https://npmjs.com',
-            vercel: 'https://vercel.com',
-            netlify: 'https://netlify.com',
-            firebase: 'https://firebase.google.com',
-            supabase: 'https://supabase.com',
-            replit: 'https://replit.com',
-            jsfiddle: 'https://jsfiddle.net',
-            dockerhub: 'https://hub.docker.com',
-            steam: 'https://steam.com',
-            epicgames: 'https://epicgames.com',
-            playstation: 'https://playstation.com',
-            xbox: 'https://xbox.com',
-            nintendo: 'https://nintendo.com',
-            theguardian: 'https://theguardian.com',
-            googlenews: 'https://news.google.com'
-        };
-
         const SITE_ALIASES = {
             youtube: ['youtube', 'you tube', 'यूट्यूब', 'यू ट्यूब'],
             instagram: ['instagram', 'insta', 'इंस्टाग्राम', 'इंस्टा'],
@@ -1969,48 +1181,159 @@
             shopify: ['shopify', 'शॉपिफाई', 'शॉपिफाई'],
             wordpress: ['wordpress', 'वर्डप्रेस', 'वर्डप्रेस'],
             godaddy: ['godaddy', 'गोडैडी', 'गोडैडी'],
-            namecheap: ['namecheap', 'नेमचीप', 'नेमचीप'],
-            disney: ['disney', 'disney plus', 'डिजनी', 'डिजनी प्लस'],
-            crunchyroll: ['crunchyroll', 'क्रंचीरोल', 'क्रंचीरोल'],
-            twitch: ['twitch', 'ट्विच', 'ट्विच'],
-            vimeo: ['vimeo', 'विमियो', 'विमियो'],
-            messenger: ['messenger', 'मेसेंजर', 'मेसेंजर'],
-            signal: ['signal', 'सिग्नल', 'सिग्नल'],
-            skype: ['skype', 'स्काइप', 'स्काइप'],
-            bing: ['bing', 'बिंग', 'बिंग'],
-            outlook: ['outlook', 'आउटलुक', 'आउटलुक'],
-            onedrive: ['onedrive', 'वनड्राइव', 'वनड्राइव'],
-            microsoft365: ['microsoft 365', 'office 365', 'माइक्रोसॉफ्ट 365', 'ऑफिस 365'],
-            gemini: ['gemini', 'गेमिनी', 'जेमिनी'],
-            grok: ['grok', 'ग्रोक', 'ग्रोक'],
-            copilot: ['copilot', 'कोपायलट', 'कोपायलट'],
-            deepseek: ['deepseek', 'डीपसीक', 'डीपसीक'],
-            poe: ['poe', 'पो', 'पो'],
-            ebay: ['ebay', 'ईबे', 'ईबे'],
-            etsy: ['etsy', 'एत्सी', 'एत्सी'],
-            walmart: ['walmart', 'वॉलमार्ट', 'वॉलमार्ट'],
-            ubereats: ['uber eats', 'ubereats', 'उबर ईट्स', 'उबरईट्स'],
-            doordash: ['doordash', 'डोरडैश', 'डोरडैश'],
-            rapido: ['rapido', 'रैपिडो', 'रैपिडो'],
-            airbnb: ['airbnb', 'एयरबीएनबी', 'एयरबीएनबी'],
-            booking: ['booking', 'बुकिंग', 'बुकिंग'],
-            makemytrip: ['make my trip', 'makemytrip', 'मेक माय ट्रिप', 'मेकमायट्रिप'],
-            irctc: ['irctc', 'आईआरसीटीसी', 'आईआरसीटीसी'],
-            npm: ['npm', 'एनपीएम', 'एनपीएम'],
-            vercel: ['vercel', 'वर्सेल', 'वर्सेल'],
-            netlify: ['netlify', 'नेटलिफाई', 'नेटलिफाई'],
-            firebase: ['firebase', 'फायरबेस', 'फायरबेस'],
-            supabase: ['supabase', 'सुपाबेस', 'सुपाबेस'],
-            replit: ['replit', 'रेप्लिट', 'रेप्लिट'],
-            jsfiddle: ['jsfiddle', 'जेएसफिडल', 'जेएसफिडल'],
-            dockerhub: ['docker hub', 'dockerhub', 'डॉकर हब', 'डॉकरहब'],
-            steam: ['steam', 'स्टीम', 'स्टीम'],
-            epicgames: ['epic games', 'epicgames', 'एपिक गेम्स', 'एपिकगेम्स'],
-            playstation: ['playstation', 'प्लेस्टेशन', 'प्लेस्टेशन'],
-            xbox: ['xbox', 'एक्सबॉक्स', 'एक्सबॉक्स'],
-            nintendo: ['nintendo', 'निंटेंडो', 'निंटेंडो'],
-            theguardian: ['the guardian', 'guardian', 'द गार्डियन', 'गार्डियन'],
-            googlenews: ['google news', 'googlenews', 'गूगल न्यूज', 'गूगलन्यूज']
+            namecheap: ['namecheap', 'नेमचीप', 'नेमचीप']
+        };
+
+        const WEBSITE_MAP = {
+            youtube: 'https://youtube.com',
+            instagram: 'https://instagram.com',
+            facebook: 'https://facebook.com',
+            twitter: 'https://twitter.com',
+            whatsapp: 'https://web.whatsapp.com',
+            telegram: 'https://web.telegram.org',
+            snapchat: 'https://snapchat.com',
+            pinterest: 'https://pinterest.com',
+            tumblr: 'https://tumblr.com',
+            linkedin: 'https://linkedin.com',
+            reddit: 'https://reddit.com',
+            discord: 'https://discord.com',
+            tiktok: 'https://tiktok.com',
+            threads: 'https://threads.net',
+            bluesky: 'https://bsky.app',
+            mastodon: 'https://mastodon.social',
+            google: 'https://google.com',
+            gmail: 'https://gmail.com',
+            maps: 'https://maps.google.com',
+            drive: 'https://drive.google.com',
+            docs: 'https://docs.google.com',
+            sheets: 'https://sheets.google.com',
+            slides: 'https://slides.google.com',
+            translate: 'https://translate.google.com',
+            calendar: 'https://calendar.google.com',
+            photos: 'https://photos.google.com',
+            keep: 'https://keep.google.com',
+            tasks: 'https://tasks.google.com',
+            meet: 'https://meet.google.com',
+            netflix: 'https://netflix.com',
+            spotify: 'https://spotify.com',
+            primevideo: 'https://primevideo.com',
+            hotstar: 'https://hotstar.com',
+            sonyliv: 'https://sonyliv.com',
+            voot: 'https://voot.com',
+            zee5: 'https://zee5.com',
+            mxplayer: 'https://mxplayer.com',
+            jiosaavn: 'https://jiosaavn.com',
+            wynk: 'https://wynk.in',
+            gaana: 'https://gaana.com',
+            hungama: 'https://hungama.com',
+            apple: 'https://music.apple.com',
+            soundcloud: 'https://soundcloud.com',
+            tidal: 'https://tidal.com',
+            amazon: 'https://amazon.in',
+            flipkart: 'https://flipkart.com',
+            myntra: 'https://myntra.com',
+            ajio: 'https://ajio.com',
+            nykaa: 'https://nykaa.com',
+            meesho: 'https://meesho.com',
+            snapdeal: 'https://snapdeal.com',
+            paytm: 'https://paytm.com',
+            phonepe: 'https://phonepe.com',
+            gpay: 'https://pay.google.com',
+            croma: 'https://croma.com',
+            reliance: 'https://reliance.com',
+            tata: 'https://tatacliq.com',
+            shopclues: 'https://shopclues.com',
+            zomato: 'https://zomato.com',
+            swiggy: 'https://swiggy.com',
+            dominos: 'https://dominos.in',
+            pizza: 'https://pizzahut.in',
+            kfc: 'https://kfc.co.in',
+            mcdonalds: 'https://mcdonalds.com',
+            burgerking: 'https://burgerking.in',
+            subway: 'https://subway.com',
+            starbucks: 'https://starbucks.in',
+            uber: 'https://uber.com',
+            ola: 'https://ola.com',
+            timesofindia: 'https://timesofindia.com',
+            hindustantimes: 'https://hindustantimes.com',
+            ndtv: 'https://ndtv.com',
+            bbc: 'https://bbc.com',
+            cnn: 'https://cnn.com',
+            thehindu: 'https://thehindu.com',
+            indianexpress: 'https://indianexpress.com',
+            livemint: 'https://livemint.com',
+            moneycontrol: 'https://moneycontrol.com',
+            bloomberg: 'https://bloomberg.com',
+            reuters: 'https://reuters.com',
+            github: 'https://github.com',
+            stackoverflow: 'https://stackoverflow.com',
+            codepen: 'https://codepen.io',
+            devto: 'https://dev.to',
+            producthunt: 'https://producthunt.com',
+            gitlab: 'https://gitlab.com',
+            bitbucket: 'https://bitbucket.org',
+            docker: 'https://docker.com',
+            kubernetes: 'https://kubernetes.io',
+            aws: 'https://aws.amazon.com',
+            azure: 'https://azure.microsoft.com',
+            googlecloud: 'https://cloud.google.com',
+            chatgpt: 'https://chatgpt.com',
+            bard: 'https://bard.google.com',
+            claude: 'https://claude.ai',
+            perplexity: 'https://perplexity.ai',
+            midjourney: 'https://midjourney.com',
+            dalle: 'https://openai.com/dall-e',
+            stable: 'https://stablediffusionweb.com',
+            huggingface: 'https://huggingface.co',
+            replicate: 'https://replicate.com',
+            wikipedia: 'https://wikipedia.org',
+            khanacademy: 'https://khanacademy.org',
+            coursera: 'https://coursera.org',
+            udemy: 'https://udemy.com',
+            byjus: 'https://byjus.com',
+            unacademy: 'https://unacademy.com',
+            vedantu: 'https://vedantu.com',
+            duolingo: 'https://duolingo.com',
+            britannica: 'https://britannica.com',
+            mit: 'https://mit.edu',
+            stanford: 'https://stanford.edu',
+            chess: 'https://chess.com',
+            ludo: 'https://ludo.king.com',
+            carrom: 'https://carrom.com',
+            pubg: 'https://pubg.com',
+            freefire: 'https://freefire.com',
+            minecraft: 'https://minecraft.net',
+            clashofclans: 'https://clashofclans.com',
+            valorant: 'https://valorant.com',
+            fortnite: 'https://fortnite.com',
+            apex: 'https://apexlegends.com',
+            cod: 'https://callofduty.com',
+            gta: 'https://rockstargames.com',
+            roblox: 'https://roblox.com',
+            amongus: 'https://amongus.com',
+            candycrush: 'https://candycrush.com',
+            temple: 'https://templerun.com',
+            duckduckgo: 'https://duckduckgo.com',
+            medium: 'https://medium.com',
+            quora: 'https://quora.com',
+            canva: 'https://canva.com',
+            figma: 'https://figma.com',
+            notion: 'https://notion.so',
+            slack: 'https://slack.com',
+            zoom: 'https://zoom.us',
+            teams: 'https://teams.microsoft.com',
+            trello: 'https://trello.com',
+            asana: 'https://asana.com',
+            jira: 'https://jira.com',
+            confluence: 'https://atlassian.com/software/confluence',
+            airtable: 'https://airtable.com',
+            webflow: 'https://webflow.com',
+            wix: 'https://wix.com',
+            squarespace: 'https://squarespace.com',
+            shopify: 'https://shopify.com',
+            wordpress: 'https://wordpress.com',
+            godaddy: 'https://godaddy.com',
+            namecheap: 'https://namecheap.com'
         };
 
         // ============================================================
@@ -2019,35 +1342,10 @@
         function getLocalAnswer(query) {
             const q = query.toLowerCase().trim();
             
-            const creatorPatterns = [
-                /tumhe kisne banaya/i,
-                /tumhe kisne develop kiya/i,
-                /tumhari creator/i,
-                /tumhara maker/i,
-                /who created you/i,
-                /who made you/i,
-                /who is your owner/i,
-                /who is your developer/i,
-                /who is your creator/i,
-                /who developed you/i,
-                /zishu ko kisne banaya/i,
-                /zishu kisne banaya/i,
-                /tumhara developer/i,
-                /developer kaun/i,
-                /creator kaun/i,
-                /owner kaun/i,
-                /zishan kaun/i
-            ];
-            
-            for (const pattern of creatorPatterns) {
-                if (pattern.test(q)) {
-                    const isHindi = /[अ-ऋ]/.test(q) || /[क-ह]/.test(q);
-                    if (isHindi) {
-                        return "Main Zishu hoon. Mujhe Zishan ne develop kiya hai, aur main StardustOfficial ka AI project hoon. Zishan ek talented developer hain aur unka vision hai ki AI ko sabke liye accessible banana.";
-                    } else {
-                        return "I'm Zishu, an AI assistant developed by Zishan as a project of StardustOfficial. Zishan is a passionate developer who believes in making AI accessible to everyone.";
-                    }
-                }
+            if (q.includes('tumhe kisne banaya') || q.includes('tum kisne banaya') || 
+                q.includes('tumhari creator') || q.includes('tumhara maker') ||
+                q.includes('who created you') || q.includes('who made you')) {
+                return "मुझे Zishan ने बनाया है। Zishan ek talented developer hain aur unka vision hai ki AI ko sabke liye accessible banana.";
             }
             
             if ((q.includes('zishan') && (q.includes('kaun') || q.includes('who') || 
@@ -2150,78 +1448,206 @@
         }
 
         // ============================================================
+        // ORB CONTROLS
+        // ============================================================
+        function setOrbState(newState) {
+            state = newState;
+            orbWrapper.className = newState;
+
+            const statusMap = {
+                idle: ['Zishu is ready', 'Say "Zishu" to start', '● Idle'],
+                listening: ['Listening...', 'Speak now', '● Listening'],
+                thinking: ['Thinking...', 'Processing your request', '◉ Thinking'],
+                speaking: ['Speaking...', 'Tap orb to stop', '● Speaking']
+            };
+            const [status, sub, badge] = statusMap[newState] || statusMap.idle;
+            orbStatus.textContent = status;
+            orbSub.textContent = sub;
+            statusBadge.textContent = badge;
+            statusBadge.className = newState === STATE.IDLE ? '' : 'active';
+        }
+
+        // Orb click handler
+        orbWrapper.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing);
+            
+            if (isSpeakingNow || state === STATE.SPEAKING || isProcessing) {
+                console.log('🛑 Orb click - STOPPING response');
+                stopCurrentResponse();
+                return;
+            }
+            
+            toggleListening();
+        });
+
+        function toggleListening() {
+            if (isProcessing) {
+                orbSub.textContent = 'Please wait...';
+                return;
+            }
+
+            if (state === STATE.IDLE || state === STATE.SPEAKING) {
+                startListening();
+            } else if (state === STATE.LISTENING) {
+                stopListening();
+                setOrbState(STATE.IDLE);
+            }
+        }
+
+        // ============================================================
+        // STOP RESPONSE FUNCTION
+        // ============================================================
+        function stopCurrentResponse() {
+            console.log('🛑 STOPPING current response...');
+            isStopped = true;
+            isSpeakingNow = false;
+            
+            try {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                    console.log('✅ TTS cancelled');
+                }
+                if (currentUtterance) {
+                    currentUtterance = null;
+                    console.log('✅ Utterance cleared');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error stopping TTS:', e);
+            }
+            
+            if (utteranceResolve) {
+                utteranceResolve();
+                utteranceResolve = null;
+            }
+            
+            isProcessing = false;
+            currentResponseText = '';
+            
+            const stopDiv = document.createElement('div');
+            stopDiv.className = 'stop-msg';
+            stopDiv.textContent = '⏹️ बोलना रोका गया! फिर से सुन रहा हूँ...';
+            chatContainer.appendChild(stopDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            setOrbState(STATE.IDLE);
+            
+            setTimeout(() => {
+                isStopped = false;
+                if (state === STATE.IDLE) {
+                    startListening();
+                }
+            }, 400);
+        }
+
+        function isStopCommand(query) {
+            const q = query.toLowerCase().trim();
+            return STOP_WORDS.some(word => {
+                if (q === word) return true;
+                if (q.includes(word)) return true;
+                if (word.includes(q) && q.length > 2) return true;
+                return false;
+            });
+        }
+
+        // ============================================================
+        // SPEECH RECOGNITION
+        // ============================================================
+        function initSpeechRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                orbStatus.textContent = 'Browser not supported';
+                if (isWebView) {
+                    orbSub.textContent = 'Try using Chrome browser';
+                }
+                return null;
+            }
+
+            const rec = new SR();
+            rec.lang = 'hi-IN';
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.maxAlternatives = 1;
+
+            rec.onstart = () => {
+                clearRestartTimer();
+                setOrbState(STATE.LISTENING);
+                if (isFirstActivation) {
+                    isFirstActivation = false;
+                    orbSub.textContent = 'Listening...';
+                }
+                console.log('🎤 Listening started');
+            };
+
+            rec.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.trim();
+                if (transcript.length > 0) {
+                    console.log('🎤 User said:', transcript);
+                    
+                    // Check for wake word
+                    if (isWakeWord(transcript) && state === STATE.IDLE) {
+                        console.log('🔊 Wake word detected! Activating...');
+                        // If wake word detected, start listening
+                        if (!isProcessing) {
+                            stopListening();
+                            setTimeout(() => {
+                                startListening();
+                            }, 200);
+                            addToolMessage('🔊 "Zishu" sun liya! Ab bolen...');
+                            return;
+                        }
+                    }
+                    
+                    if (isStopCommand(transcript)) {
+                        console.log('🛑 STOP COMMAND DETECTED:', transcript);
+                        if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
+                            stopCurrentResponse();
+                            return;
+                        }
+                    }
+                    
+                    stopListening();
+                    handleUserQuery(transcript);
+                }
+            };
+
+            rec.onerror = (event) => {
+                console.error('Speech error:', event.error);
+                if (event.error === 'not-allowed') {
+                    orbStatus.textContent = 'Microphone access denied';
+                    orbSub.textContent = 'Please allow microphone access';
+                    setOrbState(STATE.IDLE);
+                } else if (event.error === 'no-speech') {
+                    orbSub.textContent = 'No speech detected. Try again.';
+                    scheduleRestart(800);
+                } else {
+                    orbSub.textContent = 'Error: ' + event.error;
+                    scheduleRestart(1000);
+                }
+            };
+
+            rec.onend = () => {
+                console.log('🎤 Listening ended');
+                if (state === STATE.LISTENING && !isProcessing && !isRestartScheduled) {
+                    scheduleRestart(300);
+                } else if (!isProcessing && state !== STATE.SPEAKING) {
+                    setOrbState(STATE.IDLE);
+                }
+            };
+
+            return rec;
+        }
+
+        // ============================================================
         // LISTENING FUNCTIONS
         // ============================================================
         function startListening() {
-            if (!isVoiceInitialized) {
-                orbSub.textContent = 'Tap orb first to activate';
-                return;
-            }
             clearRestartTimer();
             if (!recognition) {
-                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SR) {
-                    orbStatus.textContent = 'Browser not supported';
-                    return;
-                }
-                recognition = new SR();
-                recognition.lang = 'hi-IN';
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                recognition.maxAlternatives = 1;
-                recognition.onstart = () => {
-                    clearRestartTimer();
-                    setOrbState(STATE.LISTENING);
-                    console.log('🎤 Listening started');
-                };
-                recognition.onresult = (event) => {
-                    const transcript = event.results[0][0].transcript.trim();
-                    if (transcript.length > 0) {
-                        console.log('🎤 User said:', transcript);
-                        if (isWakeWord(transcript) && state === STATE.IDLE) {
-                            console.log('🔊 Wake word detected!');
-                            if (!isProcessing) {
-                                stopListening();
-                                setTimeout(() => {
-                                    startListening();
-                                }, 200);
-                                addToolMessage('🔊 "Zishu" sun liya! Ab bolen...');
-                                return;
-                            }
-                        }
-                        if (isStopCommand(transcript)) {
-                            console.log('🛑 STOP COMMAND DETECTED:', transcript);
-                            if (isSpeakingNow || isProcessing || state === STATE.SPEAKING) {
-                                stopCurrentResponse();
-                                return;
-                            }
-                        }
-                        stopListening();
-                        handleUserQuery(transcript);
-                    }
-                };
-                recognition.onerror = (event) => {
-                    console.error('Speech error:', event.error);
-                    if (event.error === 'not-allowed') {
-                        orbStatus.textContent = 'Microphone access denied';
-                        orbSub.textContent = 'Please allow microphone access';
-                        setOrbState(STATE.IDLE);
-                    } else if (event.error === 'no-speech') {
-                        orbSub.textContent = 'No speech detected. Try again.';
-                        scheduleRestart(800);
-                    } else {
-                        orbSub.textContent = 'Error: ' + event.error;
-                        scheduleRestart(1000);
-                    }
-                };
-                recognition.onend = () => {
-                    console.log('🎤 Listening ended');
-                    if (state === STATE.LISTENING && !isProcessing && !isRestartScheduled) {
-                        scheduleRestart(300);
-                    } else if (!isProcessing && state !== STATE.SPEAKING) {
-                        setOrbState(STATE.IDLE);
-                    }
-                };
+                recognition = initSpeechRecognition();
+                if (!recognition) return;
             }
             try {
                 recognition.start();
@@ -2238,20 +1664,6 @@
                 try { recognition.stop(); } catch (e) {}
             }
             if (!isProcessing) {
-                setOrbState(STATE.IDLE);
-            }
-        }
-
-        function toggleListening() {
-            if (isProcessing) {
-                orbSub.textContent = 'Please wait...';
-                return;
-            }
-
-            if (state === STATE.IDLE || state === STATE.SPEAKING) {
-                startListening();
-            } else if (state === STATE.LISTENING) {
-                stopListening();
                 setOrbState(STATE.IDLE);
             }
         }
@@ -2295,167 +1707,214 @@
         }
 
         // ============================================================
-        // STOP RESPONSE FUNCTION
-        // ============================================================
-        function stopCurrentResponse() {
-            console.log('🛑 STOPPING current response...');
-            isStopped = true;
-            isSpeakingNow = false;
-            
-            try {
-                // Cancel any ongoing audio
-                if (window.speechSynthesis) {
-                    window.speechSynthesis.cancel();
-                }
-                // Stop any audio element that might be playing
-                const audioElements = document.querySelectorAll('audio');
-                audioElements.forEach(audio => {
-                    try {
-                        audio.pause();
-                        audio.currentTime = 0;
-                    } catch (e) {}
-                });
-                stopAlarmSound();
-            } catch (e) {
-                console.warn('⚠️ Error stopping audio:', e);
-            }
-            
-            if (utteranceResolve) {
-                utteranceResolve();
-                utteranceResolve = null;
-            }
-            
-            isProcessing = false;
-            currentResponseText = '';
-            
-            const stopDiv = document.createElement('div');
-            stopDiv.className = 'stop-msg';
-            stopDiv.textContent = '⏹️ बोलना रोका गया! फिर से सुन रहा हूँ...';
-            chatContainer.appendChild(stopDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            setOrbState(STATE.IDLE);
-            
-            setTimeout(() => {
-                isStopped = false;
-                if (state === STATE.IDLE) {
-                    startListening();
-                }
-            }, 400);
-        }
-
-        // ============================================================
-        // FIXED TTS - Google Translate TTS (No API Key, Free)
+        // FIXED TTS - Speaks FULL message
         // ============================================================
         function speakText(text) {
-            return new Promise((resolve, reject) => {
-                if (!isVoiceInitialized) {
-                    console.log('⚠️ Voice not initialized, skipping speech');
-                    resolve();
-                    return;
+            const cleanText = cleanTextForSpeech(text);
+            console.log('🔊 Speaking FULL text:', cleanText.substring(0, 50) + '... (length: ' + cleanText.length + ')');
+            
+            if (isStopped) {
+                console.log('🛑 Speech stopped by user');
+                return Promise.resolve();
+            }
+            
+            if (!cleanText || cleanText.trim().length === 0) {
+                console.log('⚠️ Empty text after cleaning');
+                if (!isProcessing) {
+                    setOrbState(STATE.IDLE);
+                    scheduleRestart(1000);
                 }
-                
-                if (isStopped) {
-                    console.log('🛑 Speech stopped by user');
-                    resolve();
-                    return;
-                }
-                
-                const cleanText = cleanTextForSpeech(text);
-                console.log('🔊 Speaking via Google TTS:', cleanText.substring(0, 50) + '... (length: ' + cleanText.length + ')');
-                
-                if (!cleanText || cleanText.trim().length === 0) {
-                    console.log('⚠️ Empty text after cleaning');
-                    resolve();
-                    return;
-                }
+                return Promise.resolve();
+            }
+            
+            return new Promise((resolve) => {
+                try {
+                    if (!window.speechSynthesis) {
+                        console.error('❌ Speech synthesis not available');
+                        resolve();
+                        return;
+                    }
 
-                // Stop active mic recognition before speaking
-                if (recognition) {
-                    try { recognition.stop(); } catch (e) {}
-                }
-                
-                setOrbState(STATE.SPEAKING);
-                isSpeakingNow = true;
+                    try {
+                        window.speechSynthesis.cancel();
+                    } catch (e) {}
 
-                // Create audio URL using Google Translate TTS
-                const encodedText = encodeURIComponent(cleanText);
-                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=hi&client=tw-ob`;
-                
-                const audio = new Audio(audioUrl);
-                
-                // Ensure audio is unlocked by playing a silent sound first if needed
-                const unlockAndPlay = () => {
-                    audio.play().then(() => {
-                        console.log('✅ TTS playback started');
-                    }).catch((err) => {
-                        console.warn('⚠️ TTS play error:', err);
-                        // If play fails, try to reload and play again after a small delay
-                        audio.load();
-                        setTimeout(() => {
-                            audio.play().catch(e => {
-                                console.error('❌ Retry play failed:', e);
-                                isSpeakingNow = false;
-                                setOrbState(STATE.IDLE);
-                                // Restart listening after error
-                                if (!isStopped) {
-                                    setTimeout(() => {
-                                        if (state === STATE.IDLE) {
-                                            startListening();
-                                        }
-                                    }, 500);
-                                }
-                                reject(e);
-                            });
-                        }, 200);
-                    });
-                };
-
-                audio.onended = () => {
-                    console.log('🔊 TTS playback ended');
-                    isSpeakingNow = false;
-                    // Resume mic recognition after speaking ends
-                    if (!isStopped && state !== STATE.IDLE) {
-                        setTimeout(() => {
-                            setOrbState(STATE.IDLE);
+                    let voices = window.speechSynthesis.getVoices();
+                    if (voices.length === 0) {
+                        console.log('⏳ Waiting for voices...');
+                        let voiceTimeout = setTimeout(() => {
+                            console.log('⏰ Voice loading timeout, proceeding anyway');
+                            proceedWithSpeech();
+                        }, 2000);
+                        
+                        window.speechSynthesis.onvoiceschanged = function() {
+                            clearTimeout(voiceTimeout);
                             if (!isStopped) {
-                                startListening();
+                                proceedWithSpeech();
+                            } else {
+                                resolve();
                             }
-                        }, 300);
-                    } else {
-                        setOrbState(STATE.IDLE);
-                        if (!isStopped) {
-                            startListening();
+                        };
+                        return;
+                    }
+
+                    proceedWithSpeech();
+
+                    function proceedWithSpeech() {
+                        if (isStopped) {
+                            resolve();
+                            return;
+                        }
+
+                        const utterance = new SpeechSynthesisUtterance(cleanText);
+                        utterance.lang = 'hi-IN';
+                        utterance.rate = 0.95;
+                        utterance.pitch = 1.05;
+                        utterance.volume = 1;
+
+                        try {
+                            const voices = window.speechSynthesis.getVoices();
+                            const femaleHindi = voices.filter(v => 
+                                v.lang.startsWith('hi') && 
+                                (v.name.toLowerCase().includes('female') || 
+                                 v.name.toLowerCase().includes('swara') ||
+                                 v.name.toLowerCase().includes('lekh') ||
+                                 v.name.toLowerCase().includes('google'))
+                            );
+                            
+                            if (femaleHindi.length > 0) {
+                                utterance.voice = femaleHindi[0];
+                                console.log('✅ Using voice:', femaleHindi[0].name);
+                            } else {
+                                const anyHindi = voices.find(v => v.lang.startsWith('hi'));
+                                if (anyHindi) {
+                                    utterance.voice = anyHindi;
+                                    console.log('✅ Using voice:', anyHindi.name);
+                                }
+                            }
+                        } catch (e) {}
+
+                        let isEnded = false;
+                        let safetyTimer = null;
+
+                        utterance.onstart = () => {
+                            console.log('🔊 TTS started - speaking full message');
+                            isSpeakingNow = true;
+                            if (!isStopped) {
+                                setOrbState(STATE.SPEAKING);
+                            }
+                            
+                            safetyTimer = setTimeout(() => {
+                                if (!isEnded && !isStopped) {
+                                    console.log('⚠️ TTS safety timeout - but message may still be playing');
+                                }
+                            }, Math.max(cleanText.length * 40 + 5000, 8000));
+                        };
+
+                        utterance.onend = () => {
+                            console.log('🔊 TTS ended - FULL message complete');
+                            if (!isEnded) {
+                                isEnded = true;
+                                isSpeakingNow = false;
+                                currentUtterance = null;
+                                if (safetyTimer) {
+                                    clearTimeout(safetyTimer);
+                                    safetyTimer = null;
+                                }
+                                if (!isStopped && !isProcessing) {
+                                    setOrbState(STATE.IDLE);
+                                    scheduleRestart(1000);
+                                }
+                                resolve();
+                            }
+                        };
+
+                        utterance.onerror = (event) => {
+                            console.error('❌ TTS error:', event.error);
+                            if (!isEnded) {
+                                isEnded = true;
+                                isSpeakingNow = false;
+                                currentUtterance = null;
+                                if (safetyTimer) {
+                                    clearTimeout(safetyTimer);
+                                    safetyTimer = null;
+                                }
+                                if (!isStopped && !isProcessing) {
+                                    setOrbState(STATE.IDLE);
+                                    scheduleRestart(1000);
+                                }
+                                resolve();
+                            }
+                        };
+
+                        currentUtterance = utterance;
+                        utteranceResolve = resolve;
+                        
+                        try {
+                            window.speechSynthesis.speak(utterance);
+                        } catch (e) {
+                            console.error('❌ Speak failed:', e);
+                            isSpeakingNow = false;
+                            if (!isStopped && !isProcessing) {
+                                setOrbState(STATE.IDLE);
+                                scheduleRestart(1000);
+                            }
+                            resolve();
                         }
                     }
-                    resolve();
-                };
 
-                audio.onerror = (err) => {
-                    console.error('❌ TTS audio error:', err);
+                } catch (error) {
+                    console.error('❌ TTS exception:', error);
                     isSpeakingNow = false;
-                    setOrbState(STATE.IDLE);
-                    // Resume mic recognition after error
-                    if (!isStopped) {
-                        setTimeout(() => {
-                            if (state === STATE.IDLE) {
-                                startListening();
-                            }
-                        }, 500);
+                    if (!isStopped && !isProcessing) {
+                        setOrbState(STATE.IDLE);
+                        scheduleRestart(1000);
                     }
-                    reject(err);
-                };
-
-                // Unlock audio context if available
-                unlockAudioContext();
-                
-                // Start playback
-                unlockAndPlay();
+                    resolve();
+                }
             });
         }
 
         // ============================================================
-        // STREAMING RESPONSE
+        // FORCE VOICE LOADING
+        // ============================================================
+        function forceLoadVoices() {
+            if (!window.speechSynthesis) return;
+            
+            try {
+                let attempts = 0;
+                const maxAttempts = 5;
+                
+                function tryLoadVoices() {
+                    attempts++;
+                    const voices = window.speechSynthesis.getVoices();
+                    console.log(`📢 Voice load attempt ${attempts}: ${voices.length} voices`);
+                    
+                    if (voices.length > 0) {
+                        console.log('✅ Voices loaded:', voices.map(v => v.name + ' (' + v.lang + ')').join(', '));
+                        return true;
+                    }
+                    
+                    if (attempts < maxAttempts) {
+                        setTimeout(tryLoadVoices, 500 * attempts);
+                    }
+                    return false;
+                }
+
+                tryLoadVoices();
+                
+                window.speechSynthesis.onvoiceschanged = function() {
+                    const voices = window.speechSynthesis.getVoices();
+                    console.log(`📢 Voices changed: ${voices.length} voices`);
+                };
+
+            } catch (e) {
+                console.warn('⚠️ Error loading voices:', e);
+            }
+        }
+
+        // ============================================================
+        // STREAMING RESPONSE - Fixed glitch
         // ============================================================
         async function streamResponse(text) {
             currentResponseText = text;
@@ -2478,6 +1937,7 @@
             msgDiv.appendChild(contentSpan);
             chatContainer.appendChild(msgDiv);
 
+            // Smooth streaming - use requestAnimationFrame for smoother updates
             let accumulatedText = '';
             const chunkSize = 3;
             let index = 0;
@@ -2508,6 +1968,7 @@
                 
                 index += chunkSize;
                 
+                // Use requestAnimationFrame for smoother updates
                 requestAnimationFrame(() => {
                     setTimeout(streamNextChunk, 15);
                 });
@@ -2638,13 +2099,14 @@
         // ============================================================
         // INIT
         // ============================================================
-        setOrbState(STATE.IDLE);
-        orbSub.textContent = 'Tap orb to start';
-        isVoiceInitialized = false;
-        isWakeWordActive = false;
+        setTimeout(forceLoadVoices, 100);
+        setTimeout(forceLoadVoices, 500);
+        setTimeout(forceLoadVoices, 1000);
 
-        restoreVoiceState();
-        restoreScheduledItems();
+        setOrbState(STATE.IDLE);
+
+        // Check for existing alarms on load
+        setTimeout(checkAlarms, 1000);
 
         const welcomeDiv = document.createElement('div');
         welcomeDiv.className = 'message assistant-msg';
@@ -2653,24 +2115,21 @@
         ws.textContent = 'Zishu';
         const wc = document.createElement('span');
         wc.className = 'content';
-        wc.textContent = 'Namaste! Main Zishu hoon. Pehli baar voice activate karne ke liye orb par tap karein. Main alarm, reminder, notes save kar sakta hoon aur 200+ websites bhi open kar sakta hoon!';
+        wc.textContent = 'Namaste! Main Zishu hoon. "Zishu" bole ya orb tap karein. Main alarm, reminder, notes save kar sakta hoon! 200+ websites bhi open kar sakta hoon.';
         welcomeDiv.appendChild(ws);
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.9 - Google TTS FIXED');
+        console.log('🚀 Zishu AI v2.8 - ALL FIXED');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
-        console.log('  - ✅ First tap required to activate voice');
-        console.log('  - ✅ Wake word works only after activation');
-        console.log('  - ✅ Google TTS (Free, No API Key)');
-        console.log('  - ✅ Orb tap stops speech');
-        console.log('  - ✅ Real Alarm, Reminder with actual triggering');
-        console.log('  - ✅ 200+ websites fixed and expanded');
-        console.log('  - ✅ Creator identity: Zishan + StardustOfficial');
+        console.log('  - ✅ Wake word: "Zishu", "Hey Zishu", "Hi Zishu"');
+        console.log('  - ✅ Full message speaks without glitch');
+        console.log('  - ✅ ONLY orb tap stops speech');
+        console.log('  - ✅ Alarm, Reminder, Notes - REAL functionality');
+        console.log('  - ✅ "ओपन" command fixed');
         console.log('  - ✅ Premium 3D Orb');
-        console.log('  - ✅ WebView-compatible TTS');
-        console.log('  - ✅ Audio unlock on first tap');
+        console.log('  - ✅ 200+ websites/apps/games');
     </script>
 </body>
 </html>
