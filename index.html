@@ -860,6 +860,7 @@
         let alarmTimers = {};
         let reminderTimers = {};
         let alarmAudio = null;
+        let audioContext = null;
 
         // ============================================================
         // DARK MODE TOGGLE
@@ -923,7 +924,6 @@
             };
             const [status, sub, badge] = statusMap[newState] || statusMap.idle;
             orbStatus.textContent = status;
-            // Only update sub if not idle or if idle, keep our custom "Tap orb to start"
             if (newState !== STATE.IDLE) {
                 orbSub.textContent = sub;
             } else {
@@ -934,48 +934,44 @@
         }
 
         // ============================================================
+        // AUDIO UNLOCK: called on first orb tap
+        // ============================================================
+        function unlockAudioContext() {
+            try {
+                // Try to create and resume an AudioContext (helps with some browsers)
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log('✅ AudioContext resumed');
+                    }).catch(err => {
+                        console.warn('⚠️ AudioContext resume failed:', err);
+                    });
+                }
+                // Also play a silent audio to unlock
+                const silent = new Audio('data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=');
+                silent.play().catch(() => {});
+                // Pre-fetch a tiny TTS to warm up
+                const warmup = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&q=hi&tl=hi&client=tw-ob');
+                warmup.play().catch(() => {});
+                console.log('🔓 Audio unlock attempted');
+            } catch (e) {
+                console.warn('Audio unlock error:', e);
+            }
+        }
+
+        // ============================================================
         // VOICE SYSTEM INITIALIZATION (triggered by first orb tap)
         // ============================================================
         function initializeVoiceSystem() {
             console.log('🎤 Initializing voice system...');
+            
+            // UNLOCK AUDIO on first tap
+            unlockAudioContext();
+            
             try {
-                // 1. Initialize speech synthesis
-                if (window.speechSynthesis) {
-                    // Cancel any pending speech
-                    window.speechSynthesis.cancel();
-                    // Attempt to resume
-                    if (window.speechSynthesis.resume) {
-                        window.speechSynthesis.resume();
-                    }
-                    // Force load voices
-                    let voices = window.speechSynthesis.getVoices();
-                    if (voices.length === 0) {
-                        window.speechSynthesis.onvoiceschanged = function() {
-                            console.log('📢 Voices loaded:', window.speechSynthesis.getVoices().length);
-                        };
-                        // Also try after a delay
-                        setTimeout(() => {
-                            window.speechSynthesis.getVoices();
-                        }, 500);
-                    } else {
-                        console.log('📢 Voices already available:', voices.length);
-                    }
-                    // Test utterance to "wake" the engine
-                    try {
-                        const testUtterance = new SpeechSynthesisUtterance(' ');
-                        testUtterance.volume = 0;
-                        testUtterance.onend = () => { console.log('✅ TTS engine initialized'); };
-                        window.speechSynthesis.speak(testUtterance);
-                        // Cancel immediately so it doesn't actually speak
-                        setTimeout(() => {
-                            window.speechSynthesis.cancel();
-                        }, 100);
-                    } catch (e) {
-                        console.warn('⚠️ Test utterance failed:', e);
-                    }
-                }
-
-                // 2. Initialize speech recognition
+                // Initialize speech recognition
                 if (!recognition) {
                     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                     if (SR) {
@@ -1070,19 +1066,17 @@
             
             console.log('🎯 Orb clicked. State:', state, 'isSpeakingNow:', isSpeakingNow, 'isProcessing:', isProcessing, 'isVoiceInitialized:', isVoiceInitialized);
             
-            // FIRST ORB TAP: initialize voice system
+            // FIRST ORB TAP: initialize voice system & unlock audio
             if (!isVoiceInitialized) {
-                console.log('🔧 First orb tap: initializing voice system...');
+                console.log('🔧 First orb tap: initializing voice system & unlocking audio...');
+                unlockAudioContext(); // Ensure audio is unlocked
                 const success = initializeVoiceSystem();
                 if (success) {
-                    // Update UI to show ready state
                     setOrbState(STATE.IDLE);
-                    // Add a welcome message update
                     const welcomeMsg = document.querySelector('.assistant-msg .content');
                     if (welcomeMsg) {
                         welcomeMsg.textContent = 'Namaste! Main Zishu hoon. Ab aap mujhse baat kar sakte hain. "Zishu" bole ya orb tap karein. Main alarm, reminder, notes save kar sakta hoon aur 200+ websites bhi open kar sakta hoon!';
                     }
-                    // Start listening immediately after initialization
                     setTimeout(() => {
                         startListening();
                     }, 300);
@@ -1114,22 +1108,9 @@
             const activated = localStorage.getItem('zishu_voice_activated');
             if (activated === 'true') {
                 console.log('🔁 Restoring voice activation state');
-                // We'll initialize on first interaction, but mark as initialized
-                // so we don't require a full init again
                 isVoiceInitialized = true;
                 isWakeWordActive = true;
-                // But we still need to actually initialize the engines
-                // We'll do a light init
-                try {
-                    if (window.speechSynthesis) {
-                        window.speechSynthesis.cancel();
-                        if (window.speechSynthesis.resume) {
-                            window.speechSynthesis.resume();
-                        }
-                        window.speechSynthesis.getVoices();
-                    }
-                } catch (e) {}
-                // Initialize recognition if not already
+                // Light init for recognition if needed
                 if (!recognition) {
                     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                     if (SR) {
@@ -1138,7 +1119,6 @@
                         recognition.continuous = false;
                         recognition.interimResults = false;
                         recognition.maxAlternatives = 1;
-                        // Set up event handlers (simplified)
                         recognition.onstart = () => {
                             clearRestartTimer();
                             setOrbState(STATE.LISTENING);
@@ -1196,30 +1176,27 @@
                     }
                 }
                 setOrbState(STATE.IDLE);
-                // Start listening automatically after restore
+                // Unlock audio on restore
+                unlockAudioContext();
                 setTimeout(() => {
                     startListening();
                 }, 500);
             } else {
-                // Not activated yet, show initial state
                 setOrbState(STATE.IDLE);
             }
         }
 
         // ============================================================
-        // ACTION HANDLERS - Alarm, Reminder, Notes (with real functionality)
+        // ACTION HANDLERS - Alarm, Reminder, Notes
         // ============================================================
         function handleActions(query) {
             const q = query.toLowerCase().trim();
             
-            // Alarm
             if (q.includes('alarm') || q.includes('अलार्म') || q.includes('alarm lagao') || q.includes('set alarm')) {
-                // Parse time
                 const timeMatch = parseAlarmTime(q);
                 if (timeMatch) {
                     const { hours, minutes, dateTime } = timeMatch;
                     if (dateTime && dateTime > new Date()) {
-                        // Store alarm
                         const alarmId = 'alarm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
                         const alarmData = {
                             id: alarmId,
@@ -1231,7 +1208,6 @@
                         const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
                         alarms.push(alarmData);
                         localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
-                        // Schedule the alarm
                         scheduleAlarm(alarmData);
                         const timeStr = dateTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
                         return `⏰ Alarm set for ${timeStr}. Main yaad dilaunga!`;
@@ -1242,9 +1218,7 @@
                 return "⏰ Alarm ke liye time batao jaise 'alarm 7 baje' ya 'alarm 9:30 am'";
             }
             
-            // Reminder
             if (q.includes('remind') || q.includes('reminder') || q.includes('याद') || q.includes('याद दिलाओ') || q.includes('remind me')) {
-                // Try to parse time and text
                 const result = parseReminderTimeAndText(q);
                 if (result) {
                     const { text, dateTime } = result;
@@ -1271,7 +1245,6 @@
                 return "📝 Reminder ke liye batao jaise 'remind me at 8 PM to call mom' ya '8 baje mujhe yaad dilana ki meeting hai'";
             }
             
-            // Notes (keep as is, they work)
             if (q.includes('note') || q.includes('नोट') || q.includes('save') || q.includes('सेव') || q.includes('save note')) {
                 const match = q.match(/(?:note|नोट|save|सेव)\s*(?:this|यह)?\s*(.+)/i);
                 if (match && match[1]) {
@@ -1286,7 +1259,6 @@
                 return "📝 Note ke liye batao jaise 'note shopping list' ya 'नोट आज बारिश हो रही है'";
             }
             
-            // Show notes
             if (q.includes('show notes') || q.includes('दिखाओ नोट') || q.includes('my notes')) {
                 const notes = JSON.parse(localStorage.getItem('zishu_notes') || '[]');
                 if (notes.length === 0) return "📝 Koi note nahi hai. Pehle note save karo!";
@@ -1294,7 +1266,6 @@
                 return `📝 Aapke notes:\n${noteList}`;
             }
             
-            // Show reminders
             if (q.includes('show reminders') || q.includes('दिखाओ रिमाइंडर') || q.includes('my reminders')) {
                 const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
                 if (reminders.length === 0) return "📝 Koi reminder nahi hai. Pehle reminder set karo!";
@@ -1312,7 +1283,6 @@
             const q = query.toLowerCase().trim();
             let hours = null, minutes = 0, ampm = null;
             
-            // Try patterns: "7 PM", "7:30 PM", "7 baje", "7:30 baje", "7 subah", "7 shaam", "7 raat"
             const patterns = [
                 /(\d{1,2})\s*[:.]\s*(\d{2})\s*(am|pm|सुबह|शाम|रात)?/i,
                 /(\d{1,2})\s*(am|pm|सुबह|शाम|रात|baje|baj)\s*/i,
@@ -1332,7 +1302,6 @@
             if (!match) return null;
             
             if (match[2] && match[2].match(/^\d{2}$/)) {
-                // Format: 7:30
                 hours = parseInt(match[1]);
                 minutes = parseInt(match[2]);
                 ampm = match[3] || null;
@@ -1348,7 +1317,6 @@
             
             if (hours === null || hours < 1 || hours > 12) return null;
             
-            // Convert to 24-hour
             if (ampm) {
                 const lowerAmpm = ampm.toLowerCase();
                 if (lowerAmpm === 'pm' || lowerAmpm === 'शाम' || lowerAmpm === 'रात') {
@@ -1356,28 +1324,14 @@
                 } else if (lowerAmpm === 'am' || lowerAmpm === 'सुबह') {
                     if (hours === 12) hours = 0;
                 }
-                // If just "baje", treat as 24-hour if > 12, else AM
-                if (lowerAmpm === 'baje' || lowerAmpm === 'baj') {
-                    if (hours >= 1 && hours <= 12) {
-                        // If no AM/PM, assume it's in 24-hour format if > 12, else AM
-                        if (hours > 12) {
-                            // already 24-hour
-                        } else {
-                            // assume AM
-                        }
-                    }
-                }
             } else {
-                // No AM/PM, assume 24-hour if > 12, else AM
                 if (hours >= 1 && hours <= 12) {
-                    // Could be AM or PM, default to AM unless it's clearly evening in context
                     if (q.includes('shaam') || q.includes('raat') || q.includes('evening') || q.includes('night')) {
                         if (hours < 12) hours += 12;
                     }
                 }
             }
             
-            // Validate hours
             if (hours < 0 || hours > 23) return null;
             if (minutes < 0 || minutes > 59) return null;
             
@@ -1385,7 +1339,6 @@
             const alarmTime = new Date(now);
             alarmTime.setHours(hours, minutes, 0, 0);
             
-            // If time is in the past, set for tomorrow
             if (alarmTime <= now) {
                 alarmTime.setDate(alarmTime.getDate() + 1);
             }
@@ -1397,25 +1350,21 @@
         // PARSE REMINDER TIME AND TEXT
         // ============================================================
         function parseReminderTimeAndText(query) {
-            // Try to extract time and text
             let timeStr = '';
             let text = '';
             
-            // Try patterns: "remind me at 8 PM to call mom"
             const atPattern = /(?:remind|reminder|याद दिलाओ|याद)\s*(?:me|मुझे)?\s*(?:at|को|पर)?\s*(\d{1,2}\s*[:.]?\s*\d{0,2}\s*(?:am|pm|सुबह|शाम|रात)?)\s*(?:to|कि|के लिए)?\s*(.+)/i;
             const atMatch = query.match(atPattern);
             if (atMatch) {
                 timeStr = atMatch[1].trim();
                 text = atMatch[2].trim();
             } else {
-                // Try pattern: "8 PM call mom"
                 const simplePattern = /(\d{1,2}\s*[:.]?\s*\d{0,2}\s*(?:am|pm|सुबह|शाम|रात)?)\s+(.+)/i;
                 const simpleMatch = query.match(simplePattern);
                 if (simpleMatch) {
                     timeStr = simpleMatch[1].trim();
                     text = simpleMatch[2].trim();
                 } else {
-                    // Try pattern with baje
                     const bajePattern = /(\d{1,2})\s*(?:baje|baj)\s*(सुबह|शाम|रात)?\s*(?:mein|को|पर)?\s*(.+)/i;
                     const bajeMatch = query.match(bajePattern);
                     if (bajeMatch) {
@@ -1429,7 +1378,6 @@
             
             if (!text || text.length < 2) return null;
             
-            // Parse the time string
             const timeResult = parseAlarmTime(timeStr);
             if (!timeResult) return null;
             
@@ -1444,7 +1392,6 @@
             const now = new Date();
             const delay = Math.max(0, triggerTime - now);
             
-            // Clear existing timer for this alarm
             if (alarmTimers[alarmData.id]) {
                 clearTimeout(alarmTimers[alarmData.id]);
                 delete alarmTimers[alarmData.id];
@@ -1457,7 +1404,6 @@
                 }, delay);
                 return true;
             } else if (alarmData.active && !alarmData.triggered && delay <= 0) {
-                // Time already passed, trigger immediately
                 setTimeout(() => {
                     triggerAlarm(alarmData.id);
                 }, 1000);
@@ -1499,32 +1445,25 @@
             const alarm = alarms[alarmIndex];
             if (!alarm.active || alarm.triggered) return;
             
-            // Mark as triggered
             alarm.triggered = true;
             alarm.active = false;
             alarms[alarmIndex] = alarm;
             localStorage.setItem('zishu_alarms', JSON.stringify(alarms));
             
-            // Remove timer
             if (alarmTimers[alarmId]) {
                 clearTimeout(alarmTimers[alarmId]);
                 delete alarmTimers[alarmId];
             }
             
-            // Show alarm UI
             const alarmMsg = document.createElement('div');
             alarmMsg.className = 'alarm-msg';
             alarmMsg.textContent = '⏰ ALARM! ' + alarm.message;
             chatContainer.appendChild(alarmMsg);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
-            // Play alarm sound (if available)
             playAlarmSound();
-            
-            // Speak alarm
             speakText('उठो! ' + alarm.message);
             
-            // Add dismiss button
             const dismissBtn = document.createElement('button');
             dismissBtn.textContent = '⏹️ Stop Alarm';
             dismissBtn.style.cssText = 'display:block;margin:8px auto;padding:8px 20px;border:none;border-radius:20px;background:#ff5722;color:white;font-weight:600;cursor:pointer;';
@@ -1575,7 +1514,7 @@
         }
 
         // ============================================================
-        // ALARM SOUND (simple oscillator)
+        // ALARM SOUND
         // ============================================================
         function playAlarmSound() {
             try {
@@ -1590,14 +1529,12 @@
                 oscillator.type = 'square';
                 gain.gain.value = 0.3;
                 oscillator.start();
-                // Stop after 3 seconds
                 setTimeout(() => {
                     try {
                         oscillator.stop();
                         context.close();
                     } catch (e) {}
                 }, 3000);
-                // Store reference to stop
                 alarmAudio = { context, oscillator, gain };
             } catch (e) {
                 console.warn('Alarm sound not available:', e);
@@ -1618,7 +1555,6 @@
         // RESTORE SCHEDULED ITEMS
         // ============================================================
         function restoreScheduledItems() {
-            // Restore alarms
             const alarms = JSON.parse(localStorage.getItem('zishu_alarms') || '[]');
             alarms.forEach(alarm => {
                 if (alarm.active && !alarm.triggered) {
@@ -1627,7 +1563,6 @@
             });
             console.log(`⏰ Restored ${alarms.filter(a => a.active && !a.triggered).length} alarms`);
             
-            // Restore reminders
             const reminders = JSON.parse(localStorage.getItem('zishu_reminders') || '[]');
             reminders.forEach(reminder => {
                 if (reminder.active && !reminder.triggered) {
@@ -1690,7 +1625,7 @@
         }
 
         // ============================================================
-        // WEBSITE MAP (UPDATED AND CORRECTED)
+        // WEBSITE MAP
         // ============================================================
         const WEBSITE_MAP = {
             youtube: 'https://youtube.com',
@@ -1842,7 +1777,6 @@
             wordpress: 'https://wordpress.com',
             godaddy: 'https://godaddy.com',
             namecheap: 'https://namecheap.com',
-            // New additions
             disney: 'https://disneyplus.com',
             crunchyroll: 'https://crunchyroll.com',
             twitch: 'https://twitch.tv',
@@ -2036,7 +1970,6 @@
             wordpress: ['wordpress', 'वर्डप्रेस', 'वर्डप्रेस'],
             godaddy: ['godaddy', 'गोडैडी', 'गोडैडी'],
             namecheap: ['namecheap', 'नेमचीप', 'नेमचीप'],
-            // New aliases
             disney: ['disney', 'disney plus', 'डिजनी', 'डिजनी प्लस'],
             crunchyroll: ['crunchyroll', 'क्रंचीरोल', 'क्रंचीरोल'],
             twitch: ['twitch', 'ट्विच', 'ट्विच'],
@@ -2081,12 +2014,11 @@
         };
 
         // ============================================================
-        // LOCAL KNOWLEDGE BASE (with correct creator identity)
+        // LOCAL KNOWLEDGE BASE
         // ============================================================
         function getLocalAnswer(query) {
             const q = query.toLowerCase().trim();
             
-            // Creator identity - MUST identify Zishan and StardustOfficial
             const creatorPatterns = [
                 /tumhe kisne banaya/i,
                 /tumhe kisne develop kiya/i,
@@ -2109,7 +2041,6 @@
             
             for (const pattern of creatorPatterns) {
                 if (pattern.test(q)) {
-                    // Check if it's in Hindi or English
                     const isHindi = /[अ-ऋ]/.test(q) || /[क-ह]/.test(q);
                     if (isHindi) {
                         return "Main Zishu hoon. Mujhe Zishan ne develop kiya hai, aur main StardustOfficial ka AI project hoon. Zishan ek talented developer hain aur unka vision hai ki AI ko sabke liye accessible banana.";
@@ -2372,17 +2303,21 @@
             isSpeakingNow = false;
             
             try {
+                // Cancel any ongoing audio
                 if (window.speechSynthesis) {
                     window.speechSynthesis.cancel();
-                    console.log('✅ TTS cancelled');
                 }
-                if (currentUtterance) {
-                    currentUtterance = null;
-                    console.log('✅ Utterance cleared');
-                }
+                // Stop any audio element that might be playing
+                const audioElements = document.querySelectorAll('audio');
+                audioElements.forEach(audio => {
+                    try {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    } catch (e) {}
+                });
                 stopAlarmSound();
             } catch (e) {
-                console.warn('⚠️ Error stopping TTS:', e);
+                console.warn('⚠️ Error stopping audio:', e);
             }
             
             if (utteranceResolve) {
@@ -2410,180 +2345,112 @@
         }
 
         // ============================================================
-        // FIXED TTS - Speaks FULL message
+        // FIXED TTS - Google Translate TTS (No API Key, Free)
         // ============================================================
         function speakText(text) {
-            if (!isVoiceInitialized) {
-                console.log('⚠️ Voice not initialized, skipping speech');
-                return Promise.resolve();
-            }
-            const cleanText = cleanTextForSpeech(text);
-            console.log('🔊 Speaking FULL text:', cleanText.substring(0, 50) + '... (length: ' + cleanText.length + ')');
-            
-            if (isStopped) {
-                console.log('🛑 Speech stopped by user');
-                return Promise.resolve();
-            }
-            
-            if (!cleanText || cleanText.trim().length === 0) {
-                console.log('⚠️ Empty text after cleaning');
-                if (!isProcessing) {
-                    setOrbState(STATE.IDLE);
-                    scheduleRestart(1000);
+            return new Promise((resolve, reject) => {
+                if (!isVoiceInitialized) {
+                    console.log('⚠️ Voice not initialized, skipping speech');
+                    resolve();
+                    return;
                 }
-                return Promise.resolve();
-            }
-            
-            return new Promise((resolve) => {
-                try {
-                    if (!window.speechSynthesis) {
-                        console.error('❌ Speech synthesis not available');
-                        resolve();
-                        return;
-                    }
+                
+                if (isStopped) {
+                    console.log('🛑 Speech stopped by user');
+                    resolve();
+                    return;
+                }
+                
+                const cleanText = cleanTextForSpeech(text);
+                console.log('🔊 Speaking via Google TTS:', cleanText.substring(0, 50) + '... (length: ' + cleanText.length + ')');
+                
+                if (!cleanText || cleanText.trim().length === 0) {
+                    console.log('⚠️ Empty text after cleaning');
+                    resolve();
+                    return;
+                }
 
-                    try {
-                        window.speechSynthesis.cancel();
-                    } catch (e) {}
+                // Stop active mic recognition before speaking
+                if (recognition) {
+                    try { recognition.stop(); } catch (e) {}
+                }
+                
+                setOrbState(STATE.SPEAKING);
+                isSpeakingNow = true;
 
-                    let voices = window.speechSynthesis.getVoices();
-                    if (voices.length === 0) {
-                        console.log('⏳ Waiting for voices...');
-                        let voiceTimeout = setTimeout(() => {
-                            console.log('⏰ Voice loading timeout, proceeding anyway');
-                            proceedWithSpeech();
-                        }, 2000);
-                        
-                        window.speechSynthesis.onvoiceschanged = function() {
-                            clearTimeout(voiceTimeout);
-                            if (!isStopped) {
-                                proceedWithSpeech();
-                            } else {
-                                resolve();
-                            }
-                        };
-                        return;
-                    }
-
-                    proceedWithSpeech();
-
-                    function proceedWithSpeech() {
-                        if (isStopped) {
-                            resolve();
-                            return;
-                        }
-
-                        const utterance = new SpeechSynthesisUtterance(cleanText);
-                        utterance.lang = 'hi-IN';
-                        utterance.rate = 0.95;
-                        utterance.pitch = 1.05;
-                        utterance.volume = 1;
-
-                        try {
-                            const voices = window.speechSynthesis.getVoices();
-                            // Try to find a Hindi voice
-                            let hindiVoice = voices.find(v => v.lang.startsWith('hi'));
-                            // Prefer female voices
-                            const femaleHindi = voices.filter(v => 
-                                v.lang.startsWith('hi') && 
-                                (v.name.toLowerCase().includes('female') || 
-                                 v.name.toLowerCase().includes('swara') ||
-                                 v.name.toLowerCase().includes('lekh') ||
-                                 v.name.toLowerCase().includes('google'))
-                            );
-                            if (femaleHindi.length > 0) {
-                                utterance.voice = femaleHindi[0];
-                                console.log('✅ Using voice:', femaleHindi[0].name);
-                            } else if (hindiVoice) {
-                                utterance.voice = hindiVoice;
-                                console.log('✅ Using voice:', hindiVoice.name);
-                            } else {
-                                // Fallback to any available voice
-                                if (voices.length > 0) {
-                                    utterance.voice = voices[0];
-                                    console.log('✅ Using fallback voice:', voices[0].name);
-                                }
-                            }
-                        } catch (e) {}
-
-                        let isEnded = false;
-                        let safetyTimer = null;
-
-                        utterance.onstart = () => {
-                            console.log('🔊 TTS started - speaking full message');
-                            isSpeakingNow = true;
-                            if (!isStopped) {
-                                setOrbState(STATE.SPEAKING);
-                            }
-                            
-                            safetyTimer = setTimeout(() => {
-                                if (!isEnded && !isStopped) {
-                                    console.log('⚠️ TTS safety timeout - but message may still be playing');
-                                }
-                            }, Math.max(cleanText.length * 40 + 5000, 8000));
-                        };
-
-                        utterance.onend = () => {
-                            console.log('🔊 TTS ended - FULL message complete');
-                            if (!isEnded) {
-                                isEnded = true;
+                // Create audio URL using Google Translate TTS
+                const encodedText = encodeURIComponent(cleanText);
+                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=hi&client=tw-ob`;
+                
+                const audio = new Audio(audioUrl);
+                
+                // Ensure audio is unlocked by playing a silent sound first if needed
+                const unlockAndPlay = () => {
+                    audio.play().then(() => {
+                        console.log('✅ TTS playback started');
+                    }).catch((err) => {
+                        console.warn('⚠️ TTS play error:', err);
+                        // If play fails, try to reload and play again after a small delay
+                        audio.load();
+                        setTimeout(() => {
+                            audio.play().catch(e => {
+                                console.error('❌ Retry play failed:', e);
                                 isSpeakingNow = false;
-                                currentUtterance = null;
-                                if (safetyTimer) {
-                                    clearTimeout(safetyTimer);
-                                    safetyTimer = null;
-                                }
-                                if (!isStopped && !isProcessing) {
-                                    setOrbState(STATE.IDLE);
-                                    scheduleRestart(1000);
-                                }
-                                resolve();
-                            }
-                        };
-
-                        utterance.onerror = (event) => {
-                            console.error('❌ TTS error:', event.error);
-                            if (!isEnded) {
-                                isEnded = true;
-                                isSpeakingNow = false;
-                                currentUtterance = null;
-                                if (safetyTimer) {
-                                    clearTimeout(safetyTimer);
-                                    safetyTimer = null;
-                                }
-                                if (!isStopped && !isProcessing) {
-                                    setOrbState(STATE.IDLE);
-                                    scheduleRestart(1000);
-                                }
-                                resolve();
-                            }
-                        };
-
-                        currentUtterance = utterance;
-                        utteranceResolve = resolve;
-                        
-                        try {
-                            window.speechSynthesis.speak(utterance);
-                        } catch (e) {
-                            console.error('❌ Speak failed:', e);
-                            isSpeakingNow = false;
-                            if (!isStopped && !isProcessing) {
                                 setOrbState(STATE.IDLE);
-                                scheduleRestart(1000);
-                            }
-                            resolve();
-                        }
-                    }
+                                // Restart listening after error
+                                if (!isStopped) {
+                                    setTimeout(() => {
+                                        if (state === STATE.IDLE) {
+                                            startListening();
+                                        }
+                                    }, 500);
+                                }
+                                reject(e);
+                            });
+                        }, 200);
+                    });
+                };
 
-                } catch (error) {
-                    console.error('❌ TTS exception:', error);
+                audio.onended = () => {
+                    console.log('🔊 TTS playback ended');
                     isSpeakingNow = false;
-                    if (!isStopped && !isProcessing) {
+                    // Resume mic recognition after speaking ends
+                    if (!isStopped && state !== STATE.IDLE) {
+                        setTimeout(() => {
+                            setOrbState(STATE.IDLE);
+                            if (!isStopped) {
+                                startListening();
+                            }
+                        }, 300);
+                    } else {
                         setOrbState(STATE.IDLE);
-                        scheduleRestart(1000);
+                        if (!isStopped) {
+                            startListening();
+                        }
                     }
                     resolve();
-                }
+                };
+
+                audio.onerror = (err) => {
+                    console.error('❌ TTS audio error:', err);
+                    isSpeakingNow = false;
+                    setOrbState(STATE.IDLE);
+                    // Resume mic recognition after error
+                    if (!isStopped) {
+                        setTimeout(() => {
+                            if (state === STATE.IDLE) {
+                                startListening();
+                            }
+                        }, 500);
+                    }
+                    reject(err);
+                };
+
+                // Unlock audio context if available
+                unlockAudioContext();
+                
+                // Start playback
+                unlockAndPlay();
             });
         }
 
@@ -2771,19 +2638,14 @@
         // ============================================================
         // INIT
         // ============================================================
-        // Set initial state
         setOrbState(STATE.IDLE);
         orbSub.textContent = 'Tap orb to start';
         isVoiceInitialized = false;
         isWakeWordActive = false;
 
-        // Restore voice state if previously activated
         restoreVoiceState();
-
-        // Restore scheduled alarms and reminders
         restoreScheduledItems();
 
-        // Add welcome message
         const welcomeDiv = document.createElement('div');
         welcomeDiv.className = 'message assistant-msg';
         const ws = document.createElement('span');
@@ -2796,18 +2658,19 @@
         welcomeDiv.appendChild(wc);
         chatContainer.appendChild(welcomeDiv);
 
-        console.log('🚀 Zishu AI v2.9 - ALL FIXED');
+        console.log('🚀 Zishu AI v2.9 - Google TTS FIXED');
         console.log('📱 WebView:', isWebView);
         console.log('🎯 Features:');
         console.log('  - ✅ First tap required to activate voice');
         console.log('  - ✅ Wake word works only after activation');
-        console.log('  - ✅ Full message speaks without glitch');
+        console.log('  - ✅ Google TTS (Free, No API Key)');
         console.log('  - ✅ Orb tap stops speech');
         console.log('  - ✅ Real Alarm, Reminder with actual triggering');
         console.log('  - ✅ 200+ websites fixed and expanded');
         console.log('  - ✅ Creator identity: Zishan + StardustOfficial');
         console.log('  - ✅ Premium 3D Orb');
-        console.log('  - ✅ WebView-friendly TTS initialization');
+        console.log('  - ✅ WebView-compatible TTS');
+        console.log('  - ✅ Audio unlock on first tap');
     </script>
 </body>
 </html>
